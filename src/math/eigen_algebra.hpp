@@ -34,6 +34,7 @@ struct EigenAlgebraT {
   using VectorX = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
   using Matrix3 = Eigen::Matrix<Scalar, 3, 3>;
   using Matrix6 = Eigen::Matrix<Scalar, 6, 6>;
+  using Matrix6x3 = Eigen::Matrix<Scalar, 6, 3>;
   using Matrix3X = Eigen::Matrix<Scalar, 3, Eigen::Dynamic>;
   using MatrixX = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
   using Quaternion = Eigen::Quaternion<Scalar>;
@@ -261,6 +262,10 @@ struct EigenAlgebraT {
   EIGEN_ALWAYS_INLINE static Matrix3 eye3() { return Matrix3::Identity(); }
   EIGEN_ALWAYS_INLINE static void set_identity(Quaternion &quat) {
     quat = Quaternion(Scalar(1.), Scalar(0.), Scalar(0.), Scalar(0.));
+  }
+  EIGEN_ALWAYS_INLINE static void set_identity(Matrix6x3 &m) {
+    m.block<3, 3>(0, 0).setIdentity();
+    m.block<3, 3>(3, 0).setZero();
   }
 
   EIGEN_ALWAYS_INLINE static Scalar zero() { return Scalar(0); }
@@ -742,6 +747,12 @@ struct EigenAlgebraT {
   }
   static void print(const std::string &title, const Matrix3 &m) {
     std::cout << title << "\n" << m << std::endl;
+  }
+  static void print(const std::string &title, const Matrix6x3 &m) {
+    std::cout << title << "\n" << m << std::endl;
+  }
+  static void print(const std::string &title, const Quaternion &q) {
+    std::cout << title << "\n" << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << std::endl;
   }
   template <typename T>
   static void print(const std::string &title, const T &abi) {

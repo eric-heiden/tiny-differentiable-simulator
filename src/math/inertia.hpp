@@ -207,12 +207,12 @@ struct ArticulatedBodyInertia {
       result.bottom = M * v.bottom + Algebra::transpose(H) * v.top;
       return result;
   }
-    Matrix6x3 operator*(const Matrix6x3 &v) const {
-        Matrix6x3 result;
-        result.m_top = I * v.m_top + H * v.m_bottom;
-        result.m_bottom = M * v.m_bottom + Algebra::transpose(H) * v.m_top;
-        return result;
-    }
+    //Matrix6x3 operator*(const Matrix6x3 &v) const {
+    //    Matrix6x3 result;
+    //    result.m_top = I * v.m_top + H * v.m_bottom;
+    //    result.m_bottom = M * v.m_bottom + Algebra::transpose(H) * v.m_top;
+    //    return result;
+    //}
 
   ForceVector mul_org(const MotionVector &v) const {
     ForceVector result;
@@ -351,12 +351,16 @@ struct ArticulatedBodyInertia {
         // Algebra::print("a", a);
         // Algebra::print("b", b);
         ArticulatedBodyInertia abi;
-        abi.I = a.m_top * b.m_top;
-        abi.M = a.m_bottom * b.m_bottom;
-        abi.H = a.m_top * b.m_bottom;
+        //abi.I = a.m_top * b.m_top;
+        //abi.M = a.m_bottom * b.m_bottom;
+        //abi.H = a.m_top * b.m_bottom;
+        abi.I = a.block<3, 3>(0, 0) * b.block<3, 3>(0, 0);
+        abi.M = a.block<3, 3>(3, 0) * b.block<3, 3>(3, 0);
+        abi.H = a.block<3,3>(0,0) * b.block<3,3>(3,0);
 
 #ifndef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
-        abi.H = abi.H.transpose();
+        //abi.H = abi.H.transpose();
+        abi.H.transposeInPlace();
 #endif
         return abi;
     }

@@ -150,7 +150,7 @@ struct MotionVector : public SpatialVector<Algebra> {
        */
     friend Vector3 operator*(const Matrix6x3 &m, const MotionVector &v) {
         Vector3 result;
-        result = m.m_top.transpose() * v.top + m.m_bottom.transpose() * v.bottom;
+        result = m.block<3,3>(0,0).transpose() * v.top + m.block<3,3>(3,0).transpose() * v.bottom;
         return result;
     }
 };
@@ -219,7 +219,8 @@ struct ForceVector : public SpatialVector<Algebra> {
          */
     friend Vector3 operator*(const Matrix6x3 &m, const ForceVector &v) {
         Vector3 result;
-        result = m.m_top.transpose() * v.top + m.m_bottom.transpose() * v.bottom;
+      //result = m.m_top.transpose() * v.top + m.m_bottom.transpose() * v.bottom;
+      result = m.block<3,3>(0,0).transpose() * v.top + m.block<3,3>(3,0).transpose() * v.bottom;
         return result;
     }
 

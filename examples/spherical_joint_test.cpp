@@ -18,6 +18,7 @@
 #include <chrono>  // std::chrono::seconds
 #include <thread>  // std::this_thread::sleep_for
 
+#include "math/eigen_algebra.hpp"
 
 #include "math/tiny/fix64_scalar.h"
 #include "dynamics/kinematics.hpp"
@@ -39,7 +40,8 @@ using namespace tds;
 
 int main(int argc, char* argv[]) {
 
-  typedef TinyAlgebra<double, DoubleUtils> Algebra;
+  //typedef TinyAlgebra<double, DoubleUtils> Algebra;
+  typedef EigenAlgebra Algebra;
   typedef typename Algebra::Vector3 Vector3;
   typedef typename Algebra::Quaternion Quaternion;
   typedef typename Algebra::VectorX VectorX;
@@ -100,14 +102,14 @@ int main(int argc, char* argv[]) {
 //  If you rotate the base there is no problem
 //  mb->set_orientation(Quaternion(Algebra::zero(), Algebra::zero(), Algebra::sqrt(0.5), Algebra::sqrt(0.5)));
 
-  mb->qd() = std::vector<double>(mb->dof_qd(), DoubleUtils::zero());
-// Setting an non-zero initial velocity around the y-axis also creates unstable behavior
+  mb->qd() = Algebra::zerox(mb->dof_qd());
+  // Setting an non-zero initial velocity around the y-axis also creates unstable behavior
 //  mb->qd()[2] = .1;
 //  mb->qd()[1] = 2;
 //  mb->qd()[0] = .1;
 
-  mb->tau() = std::vector<double>(mb->dof_qd(), DoubleUtils::zero());
-  mb->qdd() = std::vector<double>(mb->dof_qd(), DoubleUtils::zero());
+  mb->tau() = Algebra::zerox(mb->dof_qd());
+  mb->qdd() = Algebra::zerox(mb->dof_qd());
 
 // Set some stiffness and/or damping for test purposes
   for (auto &link: mb->links_){
@@ -135,16 +137,18 @@ int main(int argc, char* argv[]) {
      mb->clear_forces();
     tds::forward_kinematics(*mb);
 
-    { world.step(dt); }
+    //{ world.step(dt); }
 
     { tds::forward_dynamics(*mb, gravity); }
+
+    mb->print_state(false);
 
     {
       tds::integrate_euler(*mb, mb->q(), mb->qd(), mb->qdd(), dt);
     
 
       // printf("q: [%.3f %.3f] \tqd: [%.3f %.3f]\n", q[0], q[1], qd[0], qd[1]);
-      tds::mass_matrix(*mb, &M);
+      //tds::mass_matrix(*mb, &M);
       
       //M.print("M");
       if (mb->qd()[0] < -1e4) {
@@ -172,12 +176,13 @@ int main(int argc, char* argv[]) {
         const Transform& geom_X_world = 
                body->links()[l].X_world * body->links()[l].X_visuals[0];
 
-        TinyVector3f base_pos(geom_X_world.translation.getX(),
-                            geom_X_world.translation.getY(),
-                            geom_X_world.translation.getZ());
-        geom_X_world.rotation.getRotation(rot);
-        TinyQuaternionf base_orn(rot.getX(), rot.getY(), rot.getZ(),
-                                rot.getW());
+        TinyVector3f base_pos(geom_X_world.translation[0],
+                            geom_X_world.translation[1],
+                            geom_X_world.translation[2]);
+        rot = Algebra::matrix_to_quat(geom_X_world.rotation);
+
+        TinyQuaternionf base_orn(Algebra::quat_x(rot), Algebra::quat_y(rot), Algebra::quat_z(rot),
+                                Algebra::quat_w(rot));
         if (l>=0)
         {
           //printf("b=%d\n",b);

@@ -14,7 +14,7 @@ target_include_directories(pendulum_example_eigen_gui PRIVATE ../src  ${EIGEN3_I
 
 add_executable(spherical_joint_test spherical_joint_test.cpp  ${TDS_HDRS})
 target_link_libraries(spherical_joint_test opengl_window ${CMAKE_DL_LIBS})
-target_include_directories(spherical_joint_test PRIVATE ../src)
+target_include_directories(spherical_joint_test PRIVATE ../src ${EIGEN3_INCLUDE_DIRS})
 
 add_executable(billiard_opt_example_gui billiard_opt_example_gui.cpp  ${TDS_HDRS})
 target_link_libraries(billiard_opt_example_gui opengl_window ${CMAKE_DL_LIBS})

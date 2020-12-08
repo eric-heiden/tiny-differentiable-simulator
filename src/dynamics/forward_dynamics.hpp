@@ -53,9 +53,9 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     ArticulatedBodyInertia u_dinv_ut;
     ForceVector UuD;
     if (link.joint_type == JOINT_SPHERICAL){
-        link.U_3d = link.abi * link.S_3d;
+        link.U_3d = link.abi.matrix() * link.S_3d;
 
-        link.D_3d = link.S_3d * link.U_3d;
+        link.D_3d = link.S_3d.transpose() * link.U_3d;
 
         VectorX tau_temp = mb.get_tau_for_link(tau, i);
 
@@ -66,10 +66,10 @@ void forward_dynamics(MultiBody<Algebra> &mb,
         // TODO implement joint stiffness for spherical joints
         // TODO consider nonzero resting position of joint for stiffness?
         // TODO consider non-scalar joint damping and stiffness?
-        VectorX quat = mb.get_q_for_link(q, i);
-        Vector3 Axes_angle = Algebra::quaternion_axis_angle(Quaternion(quat[0], quat[1], quat[2], quat[3]));
-        tau_temp -= link.stiffness * Axes_angle;
-        tau_temp -= link.damping * mb.get_qd_for_link(qd, i);
+        //VectorX quat = mb.get_q_for_link(q, i);
+        //Vector3 Axes_angle = Algebra::quaternion_axis_angle(Algebra::quat_from_xyzw(quat[0], quat[1], quat[2], quat[3]));
+        //tau_temp -= link.stiffness * Axes_angle;
+        //tau_temp -= link.damping * mb.get_qd_for_link(qd, i);
 
         Vector3 tau_val(tau_temp[0], tau_temp[1], tau_temp[2]);
         link.u_3d = tau_val - link.S_3d * link.pA;
@@ -103,7 +103,13 @@ void forward_dynamics(MultiBody<Algebra> &mb,
 //        auto tmp = link.U * link.invD_3d;
         u_dinv_ut =
                 ArticulatedBodyInertia::mul_transpose(link.U_3d * link.invD_3d, link.U_3d);
-        UuD = Algebra::mul_2_force_vector(link.U_3d, (link.invD_3d * link.u_3d));
+
+        Eigen::Matrix<Scalar, 6, 1> uud2 =
+            link.U_3d * (link.invD_3d * link.u_3d);
+        //UuD = Algebra::mul_2_force_vector(link.U_3d, (link.invD_3d * link.u_3d));
+        for (int k = 0; k < 6; ++k) {
+          UuD[k] = uud2[k];
+        }
         //UuD.print("UuD\n");
     }else {
         link.U = link.abi * link.S;
@@ -224,8 +230,8 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     // #endif
 
     // mb.base_acceleration() = -mb.base_abi().inv_mul(mb.base_bias_force());
-    mb.base_acceleration() = -MotionVector(
-        Algebra::inverse(mb.base_abi().matrix()) * mb.base_bias_force());
+    //Algebra::Matrix6 ainv = Algebra::inverse(mb.base_abi().matrix());
+    //mb.base_acceleration() = -MotionVector(ainv * mb.base_bias_force());
 
   } else {
     mb.base_acceleration() = -spatial_gravity;
@@ -265,7 +271,11 @@ void forward_dynamics(MultiBody<Algebra> &mb,
               assert(!std::isnan(Algebra::to_double(qdd_val[ii])));
               qdd[link.qd_index + ii] = qdd_val[ii];
           }
-          link.a += Algebra::mul_2_motion_vector(link.S_3d, qdd_val);
+          Eigen::Matrix<Scalar, 6, 1> a = link.S_3d * qdd_val;
+          //link.a += Algebra::mul_2_motion_vector(link.S_3d, qdd_val);
+          for (int k = 0; k < 6; ++k) {
+            link.a[k] = a[k];
+          }
       } else{
           Scalar invD = link.joint_type == JOINT_FIXED ? Algebra::zero()
                                                        : Algebra::one() / link.D;

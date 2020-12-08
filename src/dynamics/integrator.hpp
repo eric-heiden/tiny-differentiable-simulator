@@ -65,17 +65,20 @@ void integrate_euler(MultiBody<Algebra> &mb, typename Algebra::VectorX &q,
       int qindex = link.q_index;
       int qdindex = link.qd_index;
       if (link.joint_type == JOINT_SPHERICAL){
-          qd[qdindex] += qdd[qdindex] * dt;
+          qd[qdindex + 0] += qdd[qdindex + 0] * dt;
           qd[qdindex + 1] += qdd[qdindex + 1] * dt;
           qd[qdindex + 2] += qdd[qdindex + 2] * dt;
 
           auto q_now = mb.get_q_for_link(q, link.index);
           auto base_rot = Algebra::quat_from_xyzw(q_now[0], q_now[1], q_now[2], q_now[3]);
+          Vector3 qvel(qd[qdindex], qd[qdindex + 1], qd[qdindex + 2]);
           Algebra::quat_increment(
-                  base_rot, Algebra::quat_velocity(base_rot, Vector3(qd[qdindex], qd[qdindex + 1], qd[qdindex + 2]), dt));
+                  base_rot, Algebra::quat_velocity(base_rot, qvel, dt));
           base_rot = Algebra::normalize(base_rot);
-          q[qindex + 0] = Algebra::quat_x(base_rot); q[qindex + 1] = Algebra::quat_y(base_rot);
-          q[qindex + 2] = Algebra::quat_z(base_rot); q[qindex + 3] = Algebra::quat_w(base_rot);
+          q[qindex + 0] = Algebra::quat_x(base_rot);
+          q[qindex + 1] = Algebra::quat_y(base_rot);
+          q[qindex + 2] = Algebra::quat_z(base_rot);
+          q[qindex + 3] = Algebra::quat_w(base_rot);
 
       } else{
           qd[qdindex] += qdd[qdindex] * dt;

@@ -377,7 +377,7 @@ public:
                    bool print_qd = true, bool print_q = true) const {
     if (print_q) {
       printf("q: [");
-      for (int i = 0; i < dof(); ++i) {
+      for (int i = 0; i < dof() + spherical_joints_; ++i) {
         if (i > 0) printf(" ");
         printf("%.2f", Algebra::to_double(q_[i]));
       }
@@ -465,7 +465,7 @@ public:
     TINY_INLINE VectorX get_q_for_link(const VectorX &q, int link_index) const {
         const Link &link = links_[link_index];
 
-        if (q.m_size == 0 || link.joint_type == JOINT_FIXED){
+        if (Algebra::size(q) == 0 || link.joint_type == JOINT_FIXED){
             return link.joint_type == JOINT_SPHERICAL ? Algebra::zerox(4) : Algebra::zerox(1);
         }
 
@@ -487,7 +487,7 @@ public:
     TINY_INLINE VectorX get_qd_for_link(const VectorX &qd, int link_index) const {
         const Link &link = links_[link_index];
 
-        if (qd.m_size == 0 || link.joint_type == JOINT_FIXED){
+        if (Algebra::size(qd )== 0 || link.joint_type == JOINT_FIXED){
             return link.joint_type == JOINT_SPHERICAL ? Algebra::zerox(3) : Algebra::zerox(1);
         }
 
@@ -527,7 +527,7 @@ public:
                                         int link_index) const {
         const Link &link = links_[link_index];
 
-        if (tau.m_size == 0 || link.joint_type == JOINT_FIXED){
+        if (Algebra::size(tau )== 0 || link.joint_type == JOINT_FIXED){
             return link.joint_type == JOINT_SPHERICAL ? Algebra::zerox(3) : Algebra::zerox(1);
         }
         int offset = is_floating_ ? -6 : 0;
