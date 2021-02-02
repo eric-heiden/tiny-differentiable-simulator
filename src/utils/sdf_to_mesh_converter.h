@@ -58,7 +58,7 @@ struct SdfToMeshConverter
     Mesh_criteria criteria;
     C3T3 c3t3;
     Function* mesh_function;
-    const double DIFF = 1e-4;
+    const double DIFF = 1e-6;
 
     SdfToMeshConverter(Function* mesh_func, const Mesh_domain& dom, const Mesh_criteria& crit)
     : mesh_function(mesh_func)
@@ -85,21 +85,23 @@ struct SdfToMeshConverter
 
         Point x_upper(x + DIFF, y, z);
         Point x_lower(x - DIFF, y, z);
-        auto x_diff = (mesh_function(x_upper) - mesh_function(x_lower)) / (2 * DIFF);
+        auto x_diff = mesh_function(x_upper) - mesh_function(x_lower);
 
         Point y_upper(x, y + DIFF, z);
         Point y_lower(x, y - DIFF, z);
-        auto y_diff = (mesh_function(y_upper) - mesh_function(y_lower)) / (2 * DIFF);
+        auto y_diff = mesh_function(y_upper) - mesh_function(y_lower);
 
         Point z_upper(x, y, z + DIFF);
         Point z_lower(x, y, z - DIFF);
-        auto z_diff = (mesh_function(z_upper) - mesh_function(z_lower)) / (2 * DIFF);
+        auto z_diff = mesh_function(z_upper) - mesh_function(z_lower);
+
+        auto norm = std::sqrt(x_diff*x_diff + y_diff*y_diff + z_diff*z_diff);
 
         // CGAL::Point_3<FT> result(x_diff, y_diff, z_diff);
         std::vector<FT> result(3);
-        result[0] = x_diff;
-        result[1] = y_diff;
-        result[2] = z_diff;
+        result[0] = x_diff / norm;
+        result[1] = y_diff / norm;
+        result[2] = z_diff / norm;
         return result;
     }
 
@@ -142,7 +144,7 @@ struct SdfToMeshConverter
             vertex_curr.nx = CGAL::to_double(v_normal[0]);
             vertex_curr.ny = CGAL::to_double(v_normal[1]);
             vertex_curr.nz = CGAL::to_double(v_normal[2]);
-            vertex_curr.u = vertex_curr.v = 0.;
+            vertex_curr.u = vertex_curr.v = 0; //(double) inum / (double) vertices_num;
 
             // CGAL::Polygon_mesh_processing::compute_vertex_normal(vit, c3t3);
 
@@ -165,13 +167,14 @@ struct SdfToMeshConverter
             Vertex_handle vh1 = f.first->vertex((f.second + 1) % 4);
             Vertex_handle vh2 = f.first->vertex((f.second + 2) % 4);
             Vertex_handle vh3 = f.first->vertex((f.second + 3) % 4);
-            if (f.second % 2 != 0) {
-                std::swap(vh2, vh3);
-            }
 
-            shape.indices.push_back(V[vh1]-1);
-            shape.indices.push_back(V[vh2]-1);
-            shape.indices.push_back(V[vh3]-1);
+            // if (f.second % 2 != 0) {
+            //     std::swap(vh2, vh3);
+            // }
+
+            // shape.indices.push_back(V[vh1]-1);
+            // shape.indices.push_back(V[vh2]-1);
+            // shape.indices.push_back(V[vh3]-1);
 
             shape.indices.push_back(V[vh3]-1);
             shape.indices.push_back(V[vh2]-1);

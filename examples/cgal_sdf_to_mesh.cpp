@@ -52,8 +52,8 @@ FT sphere_function(const Point& p)
 
 int main()
 {
-  Mesh_domain domain = Mesh_domain::create_implicit_mesh_domain(sphere_function, K::Sphere_3(CGAL::ORIGIN, 2.0));
-  Mesh_criteria criteria(facet_angle=30.0, facet_size=0.1, facet_distance=0.025, cell_radius_edge=2.0, cell_size=0.1);
+  Mesh_domain domain = Mesh_domain::create_implicit_mesh_domain(sphere_function, K::Sphere_3(CGAL::ORIGIN, 3.0));
+  Mesh_criteria criteria(facet_angle=30.0, facet_size=0.3, facet_distance=0.025, cell_radius_edge=2.0, cell_size=0.1);
   // C3t3 c3t3 = CGAL::make_mesh_3<C3t3>(domain, criteria);
 
   // // Outputing mesh in medit format to a file
@@ -103,6 +103,16 @@ int main()
     }
   }
 
+  {
+  //app.m_renderer->write_single_instance_color_to_cpu(color, inst);
+  pos.setValue(1, 0, 0);
+  int shape = app.register_graphics_unit_sphere_shape(SPHERE_LOD_HIGH);
+  float opacity = 0.7;
+  app.m_renderer->register_graphics_instance(shape, pos, orn, color, scaling, opacity);
+  }
+
+  pos.setValue(0, 0, -0.02);
+
   textureIndex = app.m_instancingRenderer->register_texture(
       &texels[0], texWidth, texHeight);
 
@@ -127,8 +137,8 @@ int main()
       // B3_PROFILE("draw_grid");
       app.draw_grid(data);
     }
-    const char* bla = "3d label";
-    app.draw_text_3d(bla, 0, 0, 1, 1);
+    // const char* bla = "3d label";
+    // app.draw_text_3d(bla, 0, 0, 1, 1);
     {
       B3_PROFILE("render_scene");
       app.m_renderer->render_scene();
