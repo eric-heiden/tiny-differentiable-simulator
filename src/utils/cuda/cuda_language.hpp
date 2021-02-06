@@ -6,6 +6,19 @@
 
 namespace tds {
 template <class Base> class LanguageCuda : public CppAD::cg::LanguageC<Base> {
+  protected:
+  using LanguageC = CppAD::cg::LanguageC<Base>;
+    using Node = typename LanguageC::Node;
+    using Arg = typename LanguageC::Arg;
+    using LanguageC::isSameArgument;
+    using LanguageC::_nameGen;
+    using LanguageC::getVariableID;
+    using LanguageC::_auxArrayName;
+    using LanguageC::_streamStack;
+    using LanguageC::_indentation;
+    using LanguageC::_info;
+    using LanguageC::encapsulateIndexPattern;
+    using LanguageC::isOffsetBy;
 public:
   LanguageCuda(size_t spaces = 2)
       : CppAD::cg::LanguageC<Base>("Float", spaces) {}
@@ -19,6 +32,7 @@ public:
   }
 
   virtual void pushAtomicForwardOp(Node &atomicFor) {
+  using namespace CppAD::cg;
     CPPADCG_ASSERT_KNOWN(
         atomicFor.getInfo().size() == 3,
         "Invalid number of information elements for atomic forward operation")
@@ -40,14 +54,14 @@ public:
     }
 
     CPPADCG_ASSERT_KNOWN(tx[0]->getOperationType() ==
-                             CppAD::cg::CGOpCode::ArrayCreation,
+                             CGOpCode::ArrayCreation,
                          "Invalid array type")
     CPPADCG_ASSERT_KNOWN(p == 0 || tx[1]->getOperationType() ==
-                                       CppAD::cg::CGOpCode::SparseArrayCreation,
+                                       CGOpCode::SparseArrayCreation,
                          "Invalid array type")
 
     CPPADCG_ASSERT_KNOWN(ty[p]->getOperationType() ==
-                             CppAD::cg::CGOpCode::ArrayCreation,
+                             CGOpCode::ArrayCreation,
                          "Invalid array type")
 
     // // tx
@@ -163,16 +177,16 @@ public:
                                           int maxForwardOrder = -1,
                                           int maxReverseOrder = -1) override {
     if (maxForwardOrder >= 0 || maxReverseOrder >= 0) {
-      ss << _spaces << "Float* " << _ATOMIC_TX << ";\n";
+      ss << this->_spaces << "Float* " << LanguageC::_ATOMIC_TX << ";\n";
       if (maxForwardOrder >= 0)
-        ss << _spaces << "Float* " << _ATOMIC_TY << ";\n";
+        ss << this->_spaces << "Float* " << LanguageC::_ATOMIC_TY << ";\n";
       if (maxReverseOrder >= 0) {
-        ss << _spaces << "Float* " << _ATOMIC_PX << ";\n";
-        ss << _spaces << "Float* " << _ATOMIC_PY << ";\n";
+        ss << this->_spaces << "Float* " << LanguageC::_ATOMIC_PX << ";\n";
+        ss << this->_spaces << "Float* " << LanguageC::_ATOMIC_PY << ";\n";
       }
     }
   }
-
+  
   inline size_t printArrayCreationUsingLoop(
       size_t startPos, Node &array, size_t starti,
       std::vector<const Arg *> &tmpArrayValues) override {
@@ -227,19 +241,19 @@ public:
 
         // account for difference between thread-local and global input
         if (starti + offset < cudaNameGen->global_input_dim()) {
-          _streamStack << _indentation << "for(i = " << starti << "; i < "
+          this->_streamStack << this->_indentation << "for(i = " << starti << "; i < "
                        << cudaNameGen->global_input_dim() - offset << "; i++) "
-                       << _auxArrayName
+                       << this->_auxArrayName
                        << "[i] = " << cudaNameGen->independent_name() << "["
                        << offset << " + i];\n";
-          _streamStack << _indentation
+          this->_streamStack << this->_indentation
                        << "for(i = " << cudaNameGen->global_input_dim() - offset
-                       << "; i < " << i << "; i++) " << _auxArrayName
+                       << "; i < " << i << "; i++) " << this->_auxArrayName
                        << "[i] = " << cudaNameGen->local_name() << "[" << offset
                        << " + i];\n";
         } else {
-          _streamStack << _indentation << "for(i = " << starti << "; i < " << i
-                       << "; i++) " << _auxArrayName
+          this->_streamStack << this->_indentation << "for(i = " << starti << "; i < " << i
+                       << "; i++) " << this->_auxArrayName
                        << "[i] = " << cudaNameGen->local_name() << "[" << offset
                        << " + i];\n";
         }
@@ -251,7 +265,7 @@ public:
          * from independents array in a loop
          */
         size_t pos = refOp.getInfo()[1];
-        IndexPattern *refIp = _info->loopIndependentIndexPatterns[pos];
+        IndexPattern *refIp = this->_info->loopIndependentIndexPatterns[pos];
 
         LinearIndexPattern *refLIp = nullptr;
         SectionedIndexPattern *refSecp = nullptr;
@@ -274,13 +288,13 @@ public:
             break; // not an independent index pattern
           }
 
-          if (!_nameGen->isInSameIndependentArray(
+          if (!this->_nameGen->isInSameIndependentArray(
                   refOp, getVariableID(refOp), *args[i].getOperation(),
                   getVariableID(*args[i].getOperation())))
             break;
 
           pos = args[i].getOperation()->getInfo()[1];
-          const IndexPattern *ip = _info->loopIndependentIndexPatterns[pos];
+          const IndexPattern *ip = this->_info->loopIndependentIndexPatterns[pos];
 
           if (!isOffsetBy(ip, refIp, long(i) - long(starti))) {
             break; // different pattern type
@@ -308,7 +322,7 @@ public:
                                                   // the handler)
         op2->getArguments().push_back(_info->auxIterationIndexOp);
 
-        arrayAssign << _nameGen->generateIndexedIndependent(*op2, 0, *p2dip);
+        arrayAssign << this->_nameGen->generateIndexedIndependent(*op2, 0, *p2dip);
       } else if (getVariableID(refOp) >= this->_minTemporaryVarID &&
                  op != CGOpCode::LoopIndexedDep &&
                  op != CGOpCode::LoopIndexedTmp && op != CGOpCode::Tmp) {

@@ -9,6 +9,26 @@
 #include "cuda_codegen.hpp"
 
 namespace tds {
+
+static std::string exec(const char *cmd) {
+  std::array<char, 1024> buffer;
+  std::string result;
+#if CPPAD_CG_SYSTEM_WIN
+  std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd, "r"), _pclose);
+#else
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+#endif
+  if (!pipe) {
+    throw std::runtime_error("popen() failed!");
+  }
+  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    result += buffer.data();
+  }
+  result.erase(std::remove(result.begin(), result.end(), '\n'), result.end());
+
+  return result;
+}
+
 template <class Base> class CudaLibraryProcessor {
 protected:
   std::string nvcc_path_{"/usr/bin/nvcc"};
@@ -238,23 +258,4 @@ void allocate(void **x, size_t size) {
     return code.str();
   }
 };
-
-static std::string exec(const char *cmd) {
-  std::array<char, 1024> buffer;
-  std::string result;
-#if CPPAD_CG_SYSTEM_WIN
-  std::unique_ptr<FILE, decltype(&_pclose)> pipe(_popen(cmd, "r"), _pclose);
-#else
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-#endif
-  if (!pipe) {
-    throw std::runtime_error("popen() failed!");
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-    result += buffer.data();
-  }
-  result.erase(std::remove(result.begin(), result.end(), '\n'), result.end());
-
-  return result;
-}
 } // namespace tds
