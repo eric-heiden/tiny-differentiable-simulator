@@ -142,16 +142,20 @@ public:
    * Compiles the previously generated code to a shared library file that can be
    * loaded subsequently.
    */
-  void create_library() const {
+  void create_library(bool with_debug_symbols = false) const {
     std::stringstream cmd;
-    std::cout << "Compiling CUDA library via " << nvcc_path_ << std::endl;
+    std::cout << "Compiling CUDA library \"" << library_name_ << "\" with "
+              << nvcc_path_ << std::endl;
     cmd << "\"" << nvcc_path_ << "\" ";
-    cmd << "--ptxas-options=-O" << std::to_string(optimization_level_) << ",-v "
-        << "-rdc=true "
+    cmd << "--ptxas-options=-O" << std::to_string(optimization_level_);
+    cmd << ",-v -rdc=true ";
+    if (with_debug_symbols) {
+      cmd << "-g ";
+    }
 #if CPPAD_CG_SYSTEM_WIN
-        << "-o " << library_name_ << ".dll "
+    cmd << "-o " << library_name_ << ".dll "
 #else
-        << "--compiler-options "
+    cmd << "--compiler-options "
         << "-fPIC "
         << "-o " << library_name_ << ".so "
 #endif
@@ -168,6 +172,8 @@ public:
                                std::to_string(return_code) + ".");
     }
   }
+
+  
 
 protected:
   std::string util_header_src() const {

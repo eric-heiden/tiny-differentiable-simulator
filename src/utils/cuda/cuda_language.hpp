@@ -69,7 +69,7 @@ public:
 
     const std::string &fun_name = this->_info->atomicFunctionId2Name.at(id);
     this->_streamStack << this->_indentation << fun_name << "_forward_zero("
-                       << this->_ATOMIC_TX << ", " << this->_ATOMIC_TY
+                       << this->_ATOMIC_TY << ", " << this->_ATOMIC_TX
                        << ");\n";
 
     // this->_streamStack << this->_indentation <<
