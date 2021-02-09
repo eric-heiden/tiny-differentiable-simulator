@@ -110,13 +110,19 @@ target_link_libraries(meshcat_zmq_example  ${MESHCAT_LIBRARIES})
 target_include_directories(meshcat_zmq_example PRIVATE ../third_party ../third_party/nlohmann/include ../src)
 
 if (CGAL_FOUND)
-  add_executable(cgal_sdf_to_mesh cgal_sdf_to_mesh.cpp ${TDS_HDRS})
+  add_executable(cgal_sdf_to_mesh cgal_sdf_to_mesh.cpp)
   # target_include_directories(cgal_sdf_to_mesh PRIVATE ${CGAL_INCLUDE_DIRS})
   target_include_directories(cgal_sdf_to_mesh PRIVATE ../third_party ../src)
-  target_link_libraries(cgal_sdf_to_mesh ${Boost_LIBRARIES} gmp mpfr opengl_window ${CMAKE_DL_LIBS} CGAL::CGAL)
+  target_link_libraries(cgal_sdf_to_mesh ${Boost_LIBRARIES} opengl_window ${CMAKE_DL_LIBS} CGAL::CGAL)
 
-  add_executable(cgal_sdf_to_mesh_ellipsoid cgal_sdf_to_mesh_ellipsoid.cpp ${TDS_HDRS})
+
+  add_executable(cgal_sdf_to_mesh_ellipsoid cgal_sdf_to_mesh_ellipsoid.cpp)
   # target_include_directories(cgal_sdf_to_mesh_ellipsoid PRIVATE ${CGAL_INCLUDE_DIRS})
   target_include_directories(cgal_sdf_to_mesh_ellipsoid PRIVATE ../third_party ../src)
-  target_link_libraries(cgal_sdf_to_mesh_ellipsoid ${Boost_LIBRARIES} gmp mpfr opengl_window ${CMAKE_DL_LIBS} CGAL::CGAL)
+  target_link_libraries(cgal_sdf_to_mesh_ellipsoid ${Boost_LIBRARIES} opengl_window ${CMAKE_DL_LIBS} CGAL::CGAL)
+  
+  if (NOT MSVC)
+    target_link_libraries(cgal_sdf_to_mesh gmp mpfr)
+    target_link_libraries(cgal_sdf_to_mesh_ellipsoid gmp mpfr)
+  endif()
 endif()

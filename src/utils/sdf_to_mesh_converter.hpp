@@ -32,7 +32,7 @@ struct SdfToMeshConverter {
   using FT = typename K::FT;
   using Point = typename K::Point_3;
   using Mesh_domain = CGAL::Labeled_mesh_domain_3<K>;
-  typedef FT(Function)(const Point&);
+  typedef FT(Function)(const Point &);
 
 #ifdef CGAL_CONCURRENT_MESH_3
   using Concurrency_tag = CGAL::Parallel_tag;
@@ -52,21 +52,21 @@ struct SdfToMeshConverter {
   Mesh_domain domain;
   Mesh_criteria criteria;
   C3T3 c3t3;
-  Function* mesh_function;
-  const double DIFF = 1e-6;
+  Function *mesh_function;
+  const double DIFF = 1e-4;
 
-  SdfToMeshConverter(Function* mesh_func, const Mesh_domain& dom,
-                     const Mesh_criteria& crit)
+  SdfToMeshConverter(Function *mesh_func, const Mesh_domain &dom,
+                     const Mesh_criteria &crit)
       : mesh_function(mesh_func), domain(dom), criteria(crit) {}
 
-  const C3T3& generate_mesh() {
+  const C3T3 &generate_mesh() {
     c3t3 = CGAL::make_mesh_3<C3T3>(domain, criteria);
     return c3t3;
   }
 
-  const Tr& get_triangulation() const { return c3t3.triangulation(); }
+  const Tr &get_triangulation() const { return c3t3.triangulation(); }
 
-  CGAL::Vector_3<K> compute_normal(const Point& p) {
+  CGAL::Vector_3<K> compute_normal(const Point &p) {
     auto x = p.x();
     auto y = p.y();
     auto z = p.z();
@@ -91,7 +91,7 @@ struct SdfToMeshConverter {
 
   CGALShape convert_to_shape() {
     this->generate_mesh();
-    const Tr& tr = this->get_triangulation();
+    const Tr &tr = this->get_triangulation();
 
     CGALShape shape;
     std::unordered_map<Vertex_handle, int> V;
@@ -117,7 +117,7 @@ struct SdfToMeshConverter {
       vertex_curr.ny = CGAL::to_double(v_normal.y());
       vertex_curr.nz = CGAL::to_double(v_normal.z());
       vertex_curr.u = vertex_curr.v =
-          0;  //(double) inum / (double) vertices_num;
+          0; //(double) inum / (double) vertices_num;
 
       shape.vertices.push_back(vertex_curr);
     }
@@ -159,13 +159,13 @@ struct SdfToMeshConverter {
         std::swap(vh1, vh3);
       }
 
-      shape.indices.push_back(V[vh3] - 1);
-      shape.indices.push_back(V[vh2] - 1);
       shape.indices.push_back(V[vh1] - 1);
+      shape.indices.push_back(V[vh2] - 1);
+      shape.indices.push_back(V[vh3] - 1);
     }
 
     return shape;
   }
 
-  void output_to_medit(std::ostream& output) { c3t3.output_to_medit(output); }
+  void output_to_medit(std::ostream &output) { c3t3.output_to_medit(output); }
 };
