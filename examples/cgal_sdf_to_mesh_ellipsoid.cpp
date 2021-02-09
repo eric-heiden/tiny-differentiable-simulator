@@ -24,7 +24,7 @@
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef K::FT FT;
 typedef K::Point_3 Point;
-typedef FT(Function)(const Point&);
+typedef FT(Function)(const Point &);
 typedef CGAL::Labeled_mesh_domain_3<K> Mesh_domain;
 
 #ifdef CGAL_CONCURRENT_MESH_3
@@ -40,7 +40,7 @@ typedef CGAL::Mesh_criteria_3<Tr> Mesh_criteria;
 using namespace CGAL::parameters;
 using namespace TINY;
 
-FT ellipsoid_function(const Point& p) {
+FT ellipsoid_function(const Point &p) {
   const FT x2 = p.x() * p.x();
   const FT y2 = p.y() * p.y();
   const FT z2 = p.z() * p.z();
@@ -88,7 +88,8 @@ int main() {
 
   std::vector<unsigned char> texels;
   texels.resize(texWidth * texHeight * 3);
-  for (int i = 0; i < texWidth * texHeight * 3; i++) texels[i] = 255;
+  for (int i = 0; i < texWidth * texHeight * 3; i++)
+    texels[i] = 255;
 
   for (int i = 0; i < texWidth; i++) {
     for (int j = 0; j < texHeight; j++) {
@@ -125,7 +126,7 @@ int main() {
       // B3_PROFILE("draw_grid");
       app.draw_grid(data);
     }
-    const char* bla = "3d label";
+    const char *bla = "3d label";
     app.draw_text_3d(bla, 0, 0, 1, 1);
     {
       B3_PROFILE("render_scene");
