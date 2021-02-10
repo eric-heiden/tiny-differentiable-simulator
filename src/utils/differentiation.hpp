@@ -505,7 +505,8 @@ class GradientFunctional<DIFF_CPPAD_AUTO, F, ScalarAlgebra> {
 
   template <typename... Args>
   GradientFunctional(Args &&... args)
-      : f_scalar_(std::forward(args)...), f_ad_(std::forward(args)...) {
+      : f_scalar_(std::forward<Args>(args)...),
+        f_ad_(std::forward<Args>(args)...) {
     Init();
   }
 
