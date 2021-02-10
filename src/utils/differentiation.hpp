@@ -49,22 +49,22 @@ static const inline bool DiffCppAdCodeGenUsesTinyAlgebra = false;
 
 TINY_INLINE std::string diff_method_name(DiffMethod m) {
   switch (m) {
-  case DIFF_NUMERICAL:
-    return "NUMERICAL";
-  case DIFF_CERES:
-    return "CERES";
-  case DIFF_DUAL:
-    return "DUAL";
-  case DIFF_STAN_REVERSE:
-    return "STAN_REVERSE";
-  case DIFF_STAN_FORWARD:
-    return "STAN_FORWARD";
-  case DIFF_CPPAD_AUTO:
-    return "CPPAD_AUTO";
-  case DIFF_CPPAD_CODEGEN_AUTO:
-    return "CPPAD_CODEGEN_AUTO";
-  default:
-    return "UNKNOWN";
+    case DIFF_NUMERICAL:
+      return "NUMERICAL";
+    case DIFF_CERES:
+      return "CERES";
+    case DIFF_DUAL:
+      return "DUAL";
+    case DIFF_STAN_REVERSE:
+      return "STAN_REVERSE";
+    case DIFF_STAN_FORWARD:
+      return "STAN_FORWARD";
+    case DIFF_CPPAD_AUTO:
+      return "CPPAD_AUTO";
+    case DIFF_CPPAD_CODEGEN_AUTO:
+      return "CPPAD_CODEGEN_AUTO";
+    default:
+      return "UNKNOWN";
   }
 }
 
@@ -88,7 +88,8 @@ struct default_diff_algebra<DIFF_DUAL, Dim, Scalar> {
   // using type = TinyAlgebra<TinyDual<Scalar>, TinyDualUtils<Scalar>>;
   using type = TinyAlgebra<TinyDualDouble, TinyDualDoubleUtils>;
 };
-template <int Dim> struct default_diff_algebra<DIFF_STAN_REVERSE, Dim, double> {
+template <int Dim>
+struct default_diff_algebra<DIFF_STAN_REVERSE, Dim, double> {
 #if USE_STAN
   using type = EigenAlgebraT<stan::math::var>;
 #else
@@ -127,9 +128,9 @@ struct default_diff_algebra<DIFF_CPPAD_CODEGEN_AUTO, Dim, Scalar> {
  * Central difference for scalar-valued function `f` given vector `x`.
  */
 template <DiffMethod Method, typename F, typename Scalar = double>
-static std::enable_if_t<Method == DIFF_NUMERICAL, void>
-compute_gradient(const F& f, const std::vector<Scalar> &x, std::vector<Scalar> &dfx,
-                 const Scalar eps = 1e-6) {
+static std::enable_if_t<Method == DIFF_NUMERICAL, void> compute_gradient(
+    const F &f, const std::vector<Scalar> &x, std::vector<Scalar> &dfx,
+    const Scalar eps = 1e-6) {
   dfx.resize(x.size());
   const Scalar fx = f(x);
   std::vector<Scalar> left_x = x, right_x = x;
@@ -151,7 +152,8 @@ struct CeresFunctional {
   F<Scalar> f_double;
   F<ceres::Jet<Scalar, Dim>> f_jet;
 
-  template <typename T> bool operator()(const T *const x, T *e) const {
+  template <typename T>
+  bool operator()(const T *const x, T *e) const {
     std::vector<T> arg(x, x + Dim);
     if constexpr (std::is_same_v<T, Scalar>) {
       *e = f_double(arg);
@@ -161,7 +163,7 @@ struct CeresFunctional {
     return true;
   }
 };
-} // namespace
+}  // namespace
 #endif
 
 /**
@@ -172,8 +174,8 @@ struct CeresFunctional {
  */
 template <DiffMethod Method, int Dim, template <typename> typename F,
           typename Scalar = double>
-static std::enable_if_t<Method == DIFF_CERES, void>
-compute_gradient(const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
+static std::enable_if_t<Method == DIFF_CERES, void> compute_gradient(
+    const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
 #ifdef USE_CERES
   assert(static_cast<int>(x.size()) == Dim);
   dfx.resize(x.size());
@@ -184,8 +186,9 @@ compute_gradient(const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
   const Scalar *params = x.data();
   cost_function.Evaluate(&params, &fx, &grad);
 #else
-  throw std::runtime_error("Variable 'USE_CERES' must be set to use automatic "
-                           "differentiation functions from Ceres.");
+  throw std::runtime_error(
+      "Variable 'USE_CERES' must be set to use automatic "
+      "differentiation functions from Ceres.");
 #endif
 }
 
@@ -194,8 +197,8 @@ compute_gradient(const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
  * `x`.
  */
 template <DiffMethod Method, typename F, typename Scalar = double>
-static std::enable_if_t<Method == DIFF_DUAL, void>
-compute_gradient(const F& f, const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
+static std::enable_if_t<Method == DIFF_DUAL, void> compute_gradient(
+    const F &f, const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
   // typedef TinyDual<Scalar> Dual;
   typedef TinyDualDouble Dual;
   dfx.resize(x.size());
@@ -215,8 +218,8 @@ compute_gradient(const F& f, const std::vector<Scalar> &x, std::vector<Scalar> &
  * Reverse-mode AD using Stan Math.
  */
 template <DiffMethod Method, typename F>
-static std::enable_if_t<Method == DIFF_STAN_REVERSE, void>
-compute_gradient(const F& f, const std::vector<double> &x, std::vector<double> &dfx) {
+static std::enable_if_t<Method == DIFF_STAN_REVERSE, void> compute_gradient(
+    const F &f, const std::vector<double> &x, std::vector<double> &dfx) {
 #if USE_STAN
   dfx.resize(x.size());
 
@@ -234,8 +237,9 @@ compute_gradient(const F& f, const std::vector<double> &x, std::vector<double> &
   stan::math::recover_memory();
   stan::math::zero_adjoints();
 #else
-  throw std::runtime_error("Variable 'USE_STAN' must be set to use automatic "
-                           "differentiation functions from Stan Math.");
+  throw std::runtime_error(
+      "Variable 'USE_STAN' must be set to use automatic "
+      "differentiation functions from Stan Math.");
 #endif
 }
 
@@ -243,8 +247,8 @@ compute_gradient(const F& f, const std::vector<double> &x, std::vector<double> &
  * Forward-mode AD using Stan Math.
  */
 template <DiffMethod Method, typename F, typename Scalar = double>
-static std::enable_if_t<Method == DIFF_STAN_FORWARD, void>
-compute_gradient(const F& f, const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
+static std::enable_if_t<Method == DIFF_STAN_FORWARD, void> compute_gradient(
+    const F &f, const std::vector<Scalar> &x, std::vector<Scalar> &dfx) {
 #if USE_STAN
   typedef stan::math::fvar<Scalar> Dual;
   dfx.resize(x.size());
@@ -260,8 +264,9 @@ compute_gradient(const F& f, const std::vector<Scalar> &x, std::vector<Scalar> &
     x_dual[i].d_ = 0.;
   }
 #else
-  throw std::runtime_error("Variable 'USE_STAN' must be set to use automatic "
-                           "differentiation functions from Stan Math.");
+  throw std::runtime_error(
+      "Variable 'USE_STAN' must be set to use automatic "
+      "differentiation functions from Stan Math.");
 #endif
 }
 
@@ -271,9 +276,10 @@ struct GradientFunctional {
   static const int kDim = F<ScalarAlgebra>::kDim;
   using Scalar = typename ScalarAlgebra::Scalar;
   virtual Scalar value(const std::vector<Scalar> &) const = 0;
-  virtual const std::vector<Scalar> &
-  gradient(const std::vector<Scalar> &) const = 0;
-  template <typename... Args> GradientFunctional(Args... args) {}
+  virtual const std::vector<Scalar> &gradient(
+      const std::vector<Scalar> &) const = 0;
+  template <typename... Args>
+  GradientFunctional(Args... args) {}
 };
 
 template <template <typename> typename F, typename ScalarAlgebra>
@@ -282,7 +288,7 @@ class GradientFunctional<DIFF_NUMERICAL, F, ScalarAlgebra> {
   F<ScalarAlgebra> f_scalar_;
   mutable std::vector<Scalar> gradient_;
 
-public:
+ public:
   template <typename... Args>
   GradientFunctional(Args... args) : f_scalar_(args...) {}
 
@@ -296,10 +302,10 @@ public:
 
 template <template <typename> typename F, typename ScalarAlgebra>
 class GradientFunctional<DIFF_CERES, F, ScalarAlgebra> {
-public:
+ public:
   static const int kDim = F<ScalarAlgebra>::kDim;
 
-private:
+ private:
   using Scalar = typename ScalarAlgebra::Scalar;
 #ifdef USE_CERES
   using ADScalar = ceres::Jet<Scalar, kDim>;
@@ -313,7 +319,8 @@ private:
 
     CostFunctional(GradientFunctional *parent) : parent(parent) {}
 
-    template <typename T> bool operator()(const T *const x, T *e) const {
+    template <typename T>
+    bool operator()(const T *const x, T *e) const {
       std::vector<T> arg(x, x + kDim);
       if constexpr (std::is_same_v<T, Scalar>) {
         *e = f_scalar(arg);
@@ -328,7 +335,7 @@ private:
   ceres::AutoDiffCostFunction<CostFunctional, 1, kDim> cost_function_;
 #endif
 
-public:
+ public:
 #ifdef USE_CERES
   // CostFunctional pointer is managed by cost_function_.
   GradientFunctional()
@@ -382,7 +389,7 @@ class GradientFunctional<DIFF_DUAL, F, ScalarAlgebra> {
   F<TinyAlgebra<TinyDualDouble, TinyDualDoubleUtils>> f_ad_;
   mutable std::vector<Scalar> gradient_;
 
-public:
+ public:
   template <typename... Args>
   GradientFunctional(Args... args) : f_scalar_(args...), f_ad_(args...) {}
 
@@ -403,7 +410,7 @@ class GradientFunctional<DIFF_STAN_REVERSE, F, ScalarAlgebra> {
   F<EigenAlgebraT<stan::math::var>> f_ad_;
   mutable std::vector<Scalar> gradient_;
 
-public:
+ public:
   template <typename... Args>
   GradientFunctional(Args... args) : f_scalar_(args...), f_ad_(args...) {}
 
@@ -413,14 +420,15 @@ public:
     return gradient_;
   }
 #else
-public:
+ public:
   template <typename... Args>
   GradientFunctional(Args... args) : f_scalar_(args...) {}
 
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
   const std::vector<Scalar> &gradient(const std::vector<Scalar> &x) const {
-    throw std::runtime_error("Variable 'USE_STAN' must be set to use automatic "
-                             "differentiation functions from Stan Math.");
+    throw std::runtime_error(
+        "Variable 'USE_STAN' must be set to use automatic "
+        "differentiation functions from Stan Math.");
   }
 #endif
 };
@@ -434,7 +442,7 @@ class GradientFunctional<DIFF_STAN_FORWARD, F, ScalarAlgebra> {
   F<EigenAlgebraT<stan::math::fvar<Scalar>>> f_ad_;
   mutable std::vector<Scalar> gradient_;
 
-public:
+ public:
   template <typename... Args>
   GradientFunctional(Args... args) : f_scalar_(args...), f_ad_(args...) {}
 
@@ -444,14 +452,15 @@ public:
     return gradient_;
   }
 #else
-public:
+ public:
   template <typename... Args>
   GradientFunctional(Args... args) : f_scalar_(args...) {}
 
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
   const std::vector<Scalar> &gradient(const std::vector<Scalar> &x) const {
-    throw std::runtime_error("Variable 'USE_STAN' must be set to use automatic "
-                             "differentiation functions from Stan Math.");
+    throw std::runtime_error(
+        "Variable 'USE_STAN' must be set to use automatic "
+        "differentiation functions from Stan Math.");
   }
 #endif
 };
@@ -479,14 +488,15 @@ inline void CppADParallelSetup(int num_threads) {
   gCppADParallelMode = true;
 }
 
-template <typename GradientFunctional> inline void CppADParallelShutdown() {
+template <typename GradientFunctional>
+inline void CppADParallelShutdown() {
   CppAD::thread_alloc::parallel_setup(1, CPPAD_NULL, CPPAD_NULL);
   gCppADParallelMode = false;
 }
 
 template <template <typename> typename F, typename ScalarAlgebra>
 class GradientFunctional<DIFF_CPPAD_AUTO, F, ScalarAlgebra> {
-public:
+ public:
   using Scalar = typename ScalarAlgebra::Scalar;
   using Dual = typename CppAD::AD<Scalar>;
   static const int kDim = F<ScalarAlgebra>::kDim;
@@ -494,7 +504,8 @@ public:
   GradientFunctional &operator=(const GradientFunctional &other) = delete;
 
   template <typename... Args>
-  GradientFunctional(Args... args) : f_scalar_(args...), f_ad_(args...) {
+  GradientFunctional(Args &&... args)
+      : f_scalar_(std::forward(args)...), f_ad_(std::forward(args)...) {
     Init();
   }
 
@@ -508,6 +519,7 @@ public:
    * Traces the function with the provided input values (zeros if empty).
    */
   void Init(const std::vector<Scalar> &x_init = {}) {
+    int actual_dim = kDim > 0 ? kDim : static_cast<int>(x_init.size());
     std::vector<Dual> ax(kDim);
     for (int i = 0; i < kDim; ++i) {
       if (i < static_cast<int>(x_init.size())) {
@@ -524,7 +536,7 @@ public:
     tape_.optimize();
   }
 
-private:
+ private:
   F<ScalarAlgebra> f_scalar_;
   F<EigenAlgebraT<Dual>> f_ad_;
   mutable CppAD::ADFun<Scalar> tape_;
@@ -534,7 +546,7 @@ private:
 namespace {
 // make sure every model has its own ID
 static inline int cpp_ad_codegen_model_counter = 0;
-} // namespace
+}  // namespace
 
 struct CodeGenSettings {
   bool verbose{true};
@@ -553,7 +565,7 @@ struct CodeGenSettings {
 #if CPPAD_CG_SYSTEM_LINUX
 template <template <typename> typename F, typename ScalarAlgebra>
 class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
-public:
+ public:
   using Scalar = typename ScalarAlgebra::Scalar;
   using CGScalar = typename CppAD::cg::CG<Scalar>;
   using Dual = typename CppAD::AD<CGScalar>;
@@ -593,9 +605,10 @@ public:
     // cgen.setCreateJacobian(true);
     if (settings.default_nograd_x.size() > 0) {
       if (settings.verbose) {
-        printf("Dynamic parameters provided, creating sparsity pattern. (%d "
-               "active, %ld inactive)\n",
-               kDim, ax.size() - kDim);
+        printf(
+            "Dynamic parameters provided, creating sparsity pattern. (%d "
+            "active, %ld inactive)\n",
+            kDim, ax.size() - kDim);
       }
       std::vector<size_t> rows(kDim, 0);
       std::vector<size_t> cols(kDim, 0);
@@ -733,7 +746,7 @@ public:
     return *this;
   }
 
-private:
+ private:
   // name of the model and library to load, uses latest compiled model by
   // default
   std::string model_name_{""};
@@ -752,4 +765,4 @@ private:
   std::unique_ptr<CppAD::cg::GenericModel<Scalar>> model_;
 };
 #endif
-} // namespace tds
+}  // namespace tds
