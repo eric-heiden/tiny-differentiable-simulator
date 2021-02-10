@@ -190,7 +190,7 @@ if(USE_RBDL)
 endif(USE_RBDL)
 endif(Eigen3_FOUND)
 
-OPTION (USE_CGAL "Include CGAL libraries for mesh generation" ON)
+OPTION (USE_CGAL "Include CGAL libraries for mesh generation" OFF)
 if (USE_CGAL)
   message("IN CGAL") 
   find_package(Boost)
