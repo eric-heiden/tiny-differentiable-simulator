@@ -521,8 +521,14 @@ class GradientFunctional<DIFF_CPPAD_AUTO, F, ScalarAlgebra> {
    */
   void Init(const std::vector<Scalar> &x_init = {}) {
     int actual_dim = kDim > 0 ? kDim : static_cast<int>(x_init.size());
-    std::vector<Dual> ax(kDim);
-    for (int i = 0; i < kDim; ++i) {
+    if (actual_dim == 0) {
+      std::cerr << "Warning: CppAD GradientFunctional could not be initialized "
+                   "since the parameter dimensionality is zero."
+                << std::endl;
+      return;
+    }
+    std::vector<Dual> ax(actual_dim);
+    for (int i = 0; i < actual_dim; ++i) {
       if (i < static_cast<int>(x_init.size())) {
         ax[i] = x_init[i];
       } else {
