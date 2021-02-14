@@ -16,7 +16,7 @@ struct NeuralAugmentation {
 
   static inline int default_hidden_layers{2};
   static inline int default_hidden_units{5};
-  NeuralNetworkActivation activation_fn = NN_ACT_ELU;
+  static inline NeuralNetworkActivation default_activation_fn = NN_ACT_ELU;
 
   // L1 regularization for input weights (lasso) to encourage sparse inputs
   double input_lasso_regularization{0};
@@ -48,7 +48,7 @@ struct NeuralAugmentation {
                                     input_bias);
     // define overparameterized NN
     for (int li = 0; li < hidden_layers; ++li) {
-      spec.add_linear_layer(activation_fn, hidden_units);
+      spec.add_linear_layer(default_activation_fn, hidden_units);
     }
     // output layer
     spec.add_linear_layer(NN_ACT_IDENTITY, static_cast<int>(outputs.size()),
