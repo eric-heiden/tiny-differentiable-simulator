@@ -5,6 +5,7 @@
 #endif
 
 #include "cuda_model.hpp"
+#include "cuda_library_processor.hpp"
 
 namespace tds {
 template <typename Scalar> class CudaLibrary {
@@ -43,12 +44,13 @@ public:
     // _dynLibHandle = dlmopen(LM_ID_NEWLM, path.c_str(), RTLD_NOW);
     if (lib_handle_ == nullptr) {
       throw std::runtime_error("Failed to dynamically load library '" +
-                               model_name + "': " + std::string(dlerror()));
+                               library_basename +
+                               "': " + std::string(dlerror()));
     }
 #endif
     auto model_info_fun =
-        CudaFunction<Scalar>::load_function<ModelInfoFunctionPtr>("model_info",
-                                                                  lib_handle_);
+        CudaFunction<Scalar>::template load_function<ModelInfoFunctionPtr>(
+            "model_info", lib_handle_);
     const char *const *names;
     int count;
     model_info_fun(&names, &count);
