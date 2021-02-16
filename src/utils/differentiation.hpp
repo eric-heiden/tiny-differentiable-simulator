@@ -9,9 +9,12 @@
 #include <stan/math/fwd.hpp>
 #endif
 
+#if USE_CPPAD
 #include <cppad/cg.hpp>
 #include <cppad/cg/support/cppadcg_eigen.hpp>
 #include <cppad/example/cppad_eigen.hpp>
+#endif
+
 #include <limits>
 #include <mutex>
 #include <stdexcept>
@@ -26,7 +29,11 @@
 #include <ceres/autodiff_cost_function.h>
 #include "math/tiny/ceres_utils.h"
 #endif
+
+#if USE_CPPAD
 #include "math/tiny/cppad_utils.h"
+#endif
+
 #include "stopwatch.hpp"
 // clang-format on
 
@@ -110,6 +117,8 @@ struct default_diff_algebra<DIFF_STAN_FORWARD, Dim, Scalar> {
   //               "functionality.");
 #endif
 };
+
+#ifdef USE_CPPAD
 template <int Dim, typename Scalar>
 struct default_diff_algebra<DIFF_CPPAD_AUTO, Dim, Scalar> {
   using ADScalar = typename CppAD::AD<Scalar>;
@@ -123,6 +132,7 @@ struct default_diff_algebra<DIFF_CPPAD_CODEGEN_AUTO, Dim, Scalar> {
                                   TinyAlgebra<ADScalar, CppADUtils<CGScalar>>,
                                   EigenAlgebraT<ADScalar>>;
 };
+#endif
 
 /**
  * Central difference for scalar-valued function `f` given vector `x`.
@@ -279,7 +289,7 @@ struct GradientFunctional {
   virtual const std::vector<Scalar> &gradient(
       const std::vector<Scalar> &) const = 0;
   template <typename... Args>
-  GradientFunctional(Args &&... args) {}
+  GradientFunctional(Args &&...args) {}
 };
 
 template <template <typename> typename F, typename ScalarAlgebra>
@@ -290,8 +300,7 @@ class GradientFunctional<DIFF_NUMERICAL, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&... args)
-      : f_scalar_(std::forward<Args>(args)...) {}
+  GradientFunctional(Args &&...args) : f_scalar_(std::forward<Args>(args)...) {}
 
   static const int kDim = F<ScalarAlgebra>::kDim;
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
@@ -392,7 +401,7 @@ class GradientFunctional<DIFF_DUAL, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&... args)
+  GradientFunctional(Args &&...args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {}
 
@@ -415,7 +424,7 @@ class GradientFunctional<DIFF_STAN_REVERSE, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&... args)
+  GradientFunctional(Args &&...args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {}
 
@@ -427,8 +436,7 @@ class GradientFunctional<DIFF_STAN_REVERSE, F, ScalarAlgebra> {
 #else
  public:
   template <typename... Args>
-  GradientFunctional(Args &&... args)
-      : f_scalar_(std::forward<Args>(args)...) {}
+  GradientFunctional(Args &&...args) : f_scalar_(std::forward<Args>(args)...) {}
 
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
   const std::vector<Scalar> &gradient(const std::vector<Scalar> &x) const {
@@ -450,7 +458,7 @@ class GradientFunctional<DIFF_STAN_FORWARD, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&... args)
+  GradientFunctional(Args &&...args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {}
 
@@ -462,8 +470,7 @@ class GradientFunctional<DIFF_STAN_FORWARD, F, ScalarAlgebra> {
 #else
  public:
   template <typename... Args>
-  GradientFunctional(Args &&... args)
-      : f_scalar_(std::forward<Args>(args)...) {}
+  GradientFunctional(Args &&...args) : f_scalar_(std::forward<Args>(args)...) {}
 
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
   const std::vector<Scalar> &gradient(const std::vector<Scalar> &x) const {
@@ -474,6 +481,7 @@ class GradientFunctional<DIFF_STAN_FORWARD, F, ScalarAlgebra> {
 #endif
 };
 
+#ifdef USE_CPPAD
 static bool gCppADParallelMode = false;
 template <typename GradientFunctional>
 inline void CppADParallelSetup(int num_threads) {
@@ -513,7 +521,7 @@ class GradientFunctional<DIFF_CPPAD_AUTO, F, ScalarAlgebra> {
   GradientFunctional &operator=(const GradientFunctional &other) = delete;
 
   template <typename... Args>
-  GradientFunctional(Args &&... args)
+  GradientFunctional(Args &&...args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {
     Init();
@@ -558,6 +566,7 @@ class GradientFunctional<DIFF_CPPAD_AUTO, F, ScalarAlgebra> {
   mutable CppAD::ADFun<Scalar> tape_;
   mutable std::vector<Scalar> gradient_;
 };
+#endif
 
 namespace {
 // make sure every model has its own ID
@@ -578,6 +587,7 @@ struct CodeGenSettings {
   std::vector<double> default_nograd_x;
 };
 
+#if USE_CPPAD
 #if CPPAD_CG_SYSTEM_LINUX
 template <template <typename> typename F, typename ScalarAlgebra>
 class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
@@ -622,7 +632,7 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
 
   template <typename... Args>
   static void Compile(const CodeGenSettings &settings = CodeGenSettings(),
-                      Args &&... args) {
+                      Args &&...args) {
     int actual_dim =
         kDim > 0 ? kDim : static_cast<int>(settings.default_x.size());
     if (actual_dim == 0) {
@@ -807,5 +817,6 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
   std::unique_ptr<CppAD::cg::LinuxDynamicLib<Scalar>> lib_{nullptr};
   std::unique_ptr<CppAD::cg::GenericModel<Scalar>> model_;
 };
+#endif
 #endif
 }  // namespace tds
