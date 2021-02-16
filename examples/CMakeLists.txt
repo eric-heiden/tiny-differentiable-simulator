@@ -42,6 +42,15 @@ IF(USE_CPPAD)
   if (USE_STAN)
     target_link_libraries(cuda_codegen PRIVATE ${STAN_LIBRARIES})
   endif(USE_STAN)
+
+  add_executable(pendulum_sys_id pendulum_sys_id.cpp ${TDS_HDRS})
+  target_compile_definitions(pendulum_sys_id PRIVATE -DUSE_CPPAD)
+  target_link_libraries(
+        pendulum_sys_id
+        PRIVATE
+        ${CMAKE_DL_LIBS}
+        Eigen3::Eigen
+        differentiation)
 ENDIF(USE_CPPAD)
 
 IF(USE_CERES)
