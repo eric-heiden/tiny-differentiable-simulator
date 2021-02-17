@@ -593,7 +593,7 @@ struct CodeGenSettings {
   // derivatives
   bool fail_on_missing_gradient_indices{true};
 
-  // custom name for the model, a unique name will be chosen if empty
+  // custom name for the model; a unique name will be chosen if empty
   std::string model_name;
 };
 
@@ -644,11 +644,11 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
   //   Init();
   // }
   // #else
-  template <typename... Args>
-  GradientFunctional(Args &&...)
-      : model_name_("model_" + std::to_string(cpp_ad_codegen_model_counter)) {
-    Init();
-  }
+  // template <typename... Args>
+  // GradientFunctional(Args &&...)
+  //     : model_name_("model_" + std::to_string(cpp_ad_codegen_model_counter)) {
+  //   Init();
+  // }
   // #endif
   GradientFunctional(const std::string &model_name =
                          "model_" +
@@ -668,16 +668,25 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
     return *this;
   }
 
+  /**
+   * Generates and compiles code for the functor provided through the template
+   * argument. Returns the name of the model that can be provided to the
+   * subsequent GradientFunctor constructions to load this model from its
+   * dynamic library (dlopen). Further codegen- and compilation-related settings
+   * can be made via the `settings` argument.
+   * Any arguments provided via parameter packing are forwarded to the
+   * constructor of the functor `F` provided as template argument.
+   */
   template <typename... Args>
-  static void Compile(const CodeGenSettings &settings = CodeGenSettings(),
-                      Args &&... args) {
+  static std::string Compile(
+      const CodeGenSettings &settings = CodeGenSettings(), Args &&... args) {
     int actual_dim =
         kDim > 0 ? kDim : static_cast<int>(settings.default_x.size());
     if (actual_dim == 0) {
       std::cerr << "Warning: CppADCodeGen GradientFunctional could not be "
                    "initialized because the parameter dimensionality is zero."
                 << std::endl;
-      return;
+      return "<ERROR>";
     }
     std::vector<Dual> ax(actual_dim + settings.default_nograd_x.size());
     for (std::size_t i = 0; i < actual_dim; ++i) {
@@ -738,6 +747,7 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
       cgen.generateSources(CppAD::cg::MultiThreadingType::NONE);
       printf("Code for model \"%s\" has been generated.\t(%.3fs)\n",
              model_name.c_str(), timer.stop());
+      fflush(stdout);
     }
 
     if (cgen.isCreateSparseJacobian()) {
@@ -765,8 +775,6 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
     cgen.setMaxAssignmentsPerFunc(settings.max_assignments_per_func);
     cgen.setMaxOperationsPerAssignment(settings.max_operations_per_assignment);
     if (settings.verbose) {
-      printf("Created CppAD::cg::ModelCSourceGen.\t(%.3fs)\n", timer.stop());
-      fflush(stdout);
       timer.start();
     }
     CppAD::cg::ModelLibraryCSourceGen<Scalar> libcgen(cgen);
@@ -815,6 +823,8 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
       printf("Finished compiling dynamic library.\t(%.3fs)\n", timer.stop());
       fflush(stdout);
     }
+
+    return model_name;
   }
 
   Scalar value(const std::vector<Scalar> &x) const {
