@@ -51,6 +51,7 @@ IF(USE_CPPAD)
         ${CMAKE_DL_LIBS}
         Eigen3::Eigen
         differentiation)
+  target_include_directories(pendulum_sys_id PRIVATE ../src)
 ENDIF(USE_CPPAD)
 
 IF(USE_CERES)
