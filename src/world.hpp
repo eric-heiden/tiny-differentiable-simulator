@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <list>
 #include <string>
 #include <vector>
 
@@ -26,7 +27,8 @@
 #include "rigid_body.hpp"
 
 namespace tds {
-template <typename Algebra> class World {
+template <typename Algebra>
+class World {
   template <typename OtherAlgebra>
   friend class World;
 
@@ -51,18 +53,18 @@ template <typename Algebra> class World {
 
   Vector3 gravity_acceleration_;
 
-  std::vector<Geometry *> geoms_;
+  std::vector<Geometry*> geoms_;
 
   SubmitProfileTiming profile_timing_func_{nullptr};
 
   CollisionDispatcher<Algebra> dispatcher_;
-  RigidBodyConstraintSolver<Algebra> *rb_constraint_solver_{nullptr};
-  MultiBodyConstraintSolver<Algebra> *mb_constraint_solver_{nullptr};
+  RigidBodyConstraintSolver<Algebra>* rb_constraint_solver_{nullptr};
+  MultiBodyConstraintSolver<Algebra>* mb_constraint_solver_{nullptr};
 
   std::vector<RigidBodyContactPoint> rb_contacts_;
   std::vector<std::vector<MultiBodyContactPoint>> mb_contacts_;
 
-public:
+ public:
   int num_solver_iterations{50};
 
   // default contact settings
@@ -117,22 +119,21 @@ public:
         tds::clone<Algebra, AlgebraTo>(*mb_constraint_solver_);
   }
 
-  inline void submit_profile_timing(const std::string &name) const {
+  inline void submit_profile_timing(const std::string& name) const {
     if (profile_timing_func_) {
       profile_timing_func_(name);
     }
   }
 
-  void set_mb_constraint_solver(MultiBodyConstraintSolver<Algebra> *solver) {
-    if (mb_constraint_solver_)
-      delete mb_constraint_solver_;
+  void set_mb_constraint_solver(MultiBodyConstraintSolver<Algebra>* solver) {
+    if (mb_constraint_solver_) delete mb_constraint_solver_;
     mb_constraint_solver_ = solver;
   }
 
-  MultiBodyConstraintSolver<Algebra> *mb_constraint_solver() {
+  MultiBodyConstraintSolver<Algebra>* mb_constraint_solver() {
     return mb_constraint_solver_;
   }
-  const MultiBodyConstraintSolver<Algebra> *mb_constraint_solver() const {
+  const MultiBodyConstraintSolver<Algebra>* mb_constraint_solver() const {
     return mb_constraint_solver_;
   }
 
@@ -155,8 +156,8 @@ public:
     }
   }
 
-  const Vector3 &get_gravity() const { return gravity_acceleration_; }
-  void set_gravity(const Vector3 &gravity) { gravity_acceleration_ = gravity; }  
+  const Vector3& get_gravity() const { return gravity_acceleration_; }
+  void set_gravity(const Vector3& gravity) { gravity_acceleration_ = gravity; }
 
   std::vector<RigidBody>& rigid_bodies() { return rigid_bodies_; }
   const std::vector<RigidBody>& rigid_bodies() const { return rigid_bodies_; }
@@ -164,20 +165,20 @@ public:
   std::vector<MultiBody>& multi_bodies() { return multi_bodies_; }
   const std::vector<MultiBody>& multi_bodies() const { return multi_bodies_; }
 
-  Capsule *create_capsule(const Scalar &radius, const Scalar &length) {
-    Capsule *capsule = new Capsule(radius, length);
+  Capsule* create_capsule(const Scalar& radius, const Scalar& length) {
+    Capsule* capsule = new Capsule(radius, length);
     geoms_.push_back(capsule);
     return capsule;
   }
 
-  Plane *create_plane() {
-    Plane *plane = new Plane();
+  Plane* create_plane() {
+    Plane* plane = new Plane();
     geoms_.push_back(plane);
     return plane;
   }
 
-  Sphere *create_sphere(const Scalar &radius) {
-    Sphere *sphere = new Sphere(radius);
+  Sphere* create_sphere(const Scalar& radius) {
+    Sphere* sphere = new Sphere(radius);
     geoms_.push_back(sphere);
     return sphere;
   }
@@ -413,4 +414,4 @@ static TINY_INLINE World<AlgebraTo>* clone(const World<AlgebraFrom>& world) {
   world.template clone<AlgebraTo>(new_world);
   return new_world;
 }
-} // namespace tds
+}  // namespace tds
