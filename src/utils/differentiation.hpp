@@ -289,7 +289,7 @@ struct GradientFunctional {
   virtual const std::vector<Scalar> &gradient(
       const std::vector<Scalar> &) const = 0;
   template <typename... Args>
-  GradientFunctional(Args &&...args) {}
+  GradientFunctional(Args &&... args) {}
 };
 
 template <template <typename> typename F, typename ScalarAlgebra>
@@ -300,7 +300,8 @@ class GradientFunctional<DIFF_NUMERICAL, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&...args) : f_scalar_(std::forward<Args>(args)...) {}
+  GradientFunctional(Args &&... args)
+      : f_scalar_(std::forward<Args>(args)...) {}
 
   static const int kDim = F<ScalarAlgebra>::kDim;
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
@@ -401,7 +402,7 @@ class GradientFunctional<DIFF_DUAL, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&...args)
+  GradientFunctional(Args &&... args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {}
 
@@ -424,7 +425,7 @@ class GradientFunctional<DIFF_STAN_REVERSE, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&...args)
+  GradientFunctional(Args &&... args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {}
 
@@ -436,7 +437,8 @@ class GradientFunctional<DIFF_STAN_REVERSE, F, ScalarAlgebra> {
 #else
  public:
   template <typename... Args>
-  GradientFunctional(Args &&...args) : f_scalar_(std::forward<Args>(args)...) {}
+  GradientFunctional(Args &&... args)
+      : f_scalar_(std::forward<Args>(args)...) {}
 
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
   const std::vector<Scalar> &gradient(const std::vector<Scalar> &x) const {
@@ -458,7 +460,7 @@ class GradientFunctional<DIFF_STAN_FORWARD, F, ScalarAlgebra> {
 
  public:
   template <typename... Args>
-  GradientFunctional(Args &&...args)
+  GradientFunctional(Args &&... args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {}
 
@@ -470,7 +472,8 @@ class GradientFunctional<DIFF_STAN_FORWARD, F, ScalarAlgebra> {
 #else
  public:
   template <typename... Args>
-  GradientFunctional(Args &&...args) : f_scalar_(std::forward<Args>(args)...) {}
+  GradientFunctional(Args &&... args)
+      : f_scalar_(std::forward<Args>(args)...) {}
 
   Scalar value(const std::vector<Scalar> &x) const { return f_scalar_(x); }
   const std::vector<Scalar> &gradient(const std::vector<Scalar> &x) const {
@@ -521,7 +524,7 @@ class GradientFunctional<DIFF_CPPAD_AUTO, F, ScalarAlgebra> {
   GradientFunctional &operator=(const GradientFunctional &other) = delete;
 
   template <typename... Args>
-  GradientFunctional(Args &&...args)
+  GradientFunctional(Args &&... args)
       : f_scalar_(std::forward<Args>(args)...),
         f_ad_(std::forward<Args>(args)...) {
     Init();
@@ -585,6 +588,41 @@ struct CodeGenSettings {
   // function arguments used while generating the code (will be zero if not set)
   std::vector<double> default_x;
   std::vector<double> default_nograd_x;
+
+  // whether to throw a MissingGradientException if some input indices have no
+  // derivatives
+  bool fail_on_missing_gradient_indices{true};
+
+  // custom name for the model, a unique name will be chosen if empty
+  std::string model_name;
+};
+
+struct MissingGradientException : public std::exception {
+  std::vector<size_t> missing_indices;
+  std::string model_name;
+
+  explicit MissingGradientException(const std::vector<size_t> &missing_indices,
+                                    const std::string &model_name)
+      : missing_indices(missing_indices), model_name(model_name) {}
+
+  static std::string message(const std::vector<size_t> &missing_indices,
+                             const std::string &model_name) {
+    std::stringstream ss;
+    ss << "The following " << missing_indices.size()
+       << " input variable indices have no available derivatives in model \""
+       << model_name << "\":\n";
+    for (size_t i = 0; i < missing_indices.size(); ++i) {
+      ss << missing_indices[i];
+      if (i < missing_indices.size() - 1) {
+        ss << ", ";
+      }
+    }
+    return ss.str();
+  }
+
+  const char *what() const noexcept override {
+    return message(missing_indices, model_name).c_str();
+  }
 };
 
 #if USE_CPPAD
@@ -632,7 +670,7 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
 
   template <typename... Args>
   static void Compile(const CodeGenSettings &settings = CodeGenSettings(),
-                      Args &&...args) {
+                      Args &&... args) {
     int actual_dim =
         kDim > 0 ? kDim : static_cast<int>(settings.default_x.size());
     if (actual_dim == 0) {
@@ -654,19 +692,30 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
       ax[i + actual_dim] = settings.default_nograd_x[i];
     }
 
+    std::string model_name;
+    if (!settings.model_name.empty()) {
+      model_name = settings.model_name;
+    } else {
+      model_name = "model_" + std::to_string(++cpp_ad_codegen_model_counter);
+    }
     CppAD::Independent(ax);
     std::vector<Dual> ay(1);
-    std::cout << "Tracing cost functor for code generation...\n";
+    Stopwatch timer;
+    timer.start();
+    if (settings.verbose) {
+      printf("Tracing cost functor of model \"%s\" for code generation...\n",
+             model_name.c_str());
+    }
     F<DualAlgebra> f(std::forward<Args>(args)...);
+    if (settings.verbose) {
+      printf("Tracing completed.\t(%.3fs)\n", timer.stop());
+    }
     ay[0] = f(ax);
     CppAD::ADFun<CGScalar> tape;
     tape.Dependent(ax, ay);
     tape.optimize();
 
-    Stopwatch timer;
     timer.start();
-    std::string model_name =
-        "model_" + std::to_string(++cpp_ad_codegen_model_counter);
     CppAD::cg::ModelCSourceGen<Scalar> cgen(tape, model_name);
     cgen.setCreateSparseJacobian(true);
     // cgen.setCreateJacobian(true);
@@ -682,6 +731,37 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
       std::iota(cols.begin(), cols.end(), 0);
       cgen.setCustomSparseJacobianElements(rows, cols);
     }
+    if (settings.verbose) {
+      timer.start();
+      printf("Generating code for model \"%s\" with CppADCodeGen...\n",
+             model_name.c_str());
+      cgen.generateSources(CppAD::cg::MultiThreadingType::NONE);
+      printf("Code for model \"%s\" has been generated.\t(%.3fs)\n",
+             model_name.c_str(), timer.stop());
+    }
+
+    if (cgen.isCreateSparseJacobian()) {
+      // check that the sparse Jacobian indices match the requested indices
+      const auto &sparsity = cgen.getJacobianSparsity();
+      std::vector<size_t> missing_indices;
+      for (size_t i = 0; i < sparsity.sparsity.size(); ++i) {
+        if (sparsity.sparsity[i].empty()) {
+          missing_indices.push_back(i);
+        }
+      }
+      if (!missing_indices.empty()) {
+        // there are missing indices in the generated sparsity pattern
+        if (settings.fail_on_missing_gradient_indices) {
+          throw MissingGradientException(missing_indices, model_name);
+        } else {
+          std::cerr << "Warning: "
+                    << MissingGradientException::message(missing_indices,
+                                                         model_name)
+                    << std::endl;
+        }
+      }
+    }
+
     cgen.setMaxAssignmentsPerFunc(settings.max_assignments_per_func);
     cgen.setMaxOperationsPerAssignment(settings.max_operations_per_assignment);
     if (settings.verbose) {

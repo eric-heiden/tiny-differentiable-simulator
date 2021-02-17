@@ -251,10 +251,10 @@ namespace TINY
                         sum -= a[i][k] * a[j][k];
                     }
                     if (i == j) {
-                        if (sum <= TinyConstants::zero()) {
-                            is_positive_definite = false;
-                            break;
-                        }
+                        // if (sum <= TinyConstants::zero()) {
+                        //     is_positive_definite = false;
+                        //     break;
+                        // }
                         diagonal[i] = TinyConstants::sqrt1(sum);
                     }
                     else {

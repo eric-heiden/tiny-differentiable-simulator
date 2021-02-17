@@ -59,6 +59,7 @@ ENDIF(BUILD_EGL)
 MESSAGE("OpenGLWindow_SRCS=${OpenGLWindow_SRCS}")
 
 ADD_LIBRARY(opengl_window ${OpenGLWindow_SRCS} ${OpenGLWindow_HDRS})
+target_link_libraries(opengl_window eigen)
 if (UNIX AND NOT APPLE)
   target_link_libraries(opengl_window ${DL})
 elseif (APPLE)
