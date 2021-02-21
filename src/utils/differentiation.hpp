@@ -581,7 +581,7 @@ struct CodeGenSettings {
   bool use_clang{true};
   int optimization_level{0};
   std::size_t max_assignments_per_func{5000};
-  std::size_t max_operations_per_assignment{50};
+  std::size_t max_operations_per_assignment{150};
   std::string sources_folder{"cppadcg_src"};
   bool save_to_disk{true};
 
@@ -722,12 +722,12 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
     ay[0] = f(ax);
     CppAD::ADFun<CGScalar> tape;
     tape.Dependent(ax, ay);
-    tape.optimize();
+    // tape.optimize();
 
     timer.start();
     CppAD::cg::ModelCSourceGen<Scalar> cgen(tape, model_name);
-    cgen.setCreateSparseJacobian(true);
-    // cgen.setCreateJacobian(true);
+    // cgen.setCreateSparseJacobian(true);
+    cgen.setCreateJacobian(true);
     if (settings.default_nograd_x.size() > 0) {
       if (settings.verbose) {
         printf(
@@ -847,8 +847,8 @@ class GradientFunctional<DIFF_CPPAD_CODEGEN_AUTO, F, ScalarAlgebra> {
     gradient_.resize(actual_dim);
     rows_.resize(actual_dim);
     cols_.resize(actual_dim);
-    model_->SparseJacobian(x, gradient_, rows_, cols_);
-    // gradient_ = model_->Jacobian(x);
+    // model_->SparseJacobian(x, gradient_, rows_, cols_);
+    gradient_ = model_->Jacobian(x);
     // gradient_.resize(actual_dim);
     // #ifndef NDEBUG
     //     // In debug mode, verify the gradient matches the (slower) Ceres
