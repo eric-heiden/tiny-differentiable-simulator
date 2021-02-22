@@ -38,6 +38,7 @@ struct Link {
 
   mutable Transform X_world;  // world_to_link
   mutable MotionVector vJ;    // local joint velocity (relative to parent link)
+  mutable MotionVector cJ;    // bias velocity for link
   mutable MotionVector v;     // global joint velocity (relative to world)
   mutable MotionVector a;     // acceleration (relative to world)
   mutable MotionVector c;     // velocity product acceleration
@@ -159,15 +160,14 @@ struct Link {
                 __LINE__);
     }
 
-    if (joint_type != JOINT_FIXED)
-    {
-        if (Algebra::norm(S) == Algebra::zero()) {
-            fprintf(stderr,
+    if (joint_type != JOINT_FIXED) {
+      if (Algebra::norm(S) == Algebra::zero()) {
+        fprintf(stderr,
                 "Error: subspace matrix S is zero after setting joint type on "
                 "link.\n");
-            assert(0);
-            exit(1);
-        }
+        assert(0);
+        exit(1);
+      }
     }
   }
 

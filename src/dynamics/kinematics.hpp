@@ -44,7 +44,7 @@ void forward_kinematics(
     }
 
     mb.base_abi() = mb.base_rbi();
-    //ForceVector I0_mul_v0 = mb.base_abi() * mb.base_velocity();
+    // ForceVector I0_mul_v0 = mb.base_abi() * mb.base_velocity();
     ForceVector I0_mul_v0 = mb.base_abi().mul_org(mb.base_velocity());
     mb.base_bias_force() =
         Algebra::cross(mb.base_velocity(), I0_mul_v0) - mb.base_applied_force();
@@ -75,15 +75,15 @@ void forward_kinematics(
       MotionVector xv = link.X_parent.apply(parentVelocity);
       link.v = xv + link.vJ;
     } else {
-      #if SWAP_TRANSFORM_ASSOCIATIVITY
+#if SWAP_TRANSFORM_ASSOCIATIVITY
       link.X_world = link.X_parent * mb.base_X_world();
-      #else
+#else
       link.X_world = mb.base_X_world() * link.X_parent;
-      #endif
+#endif
       link.v = link.vJ;
     }
     MotionVector v_x_vJ = Algebra::cross(link.v, link.vJ);
-    link.c = v_x_vJ /*+link.c_J[i]*/;
+    link.c = v_x_vJ + link.cJ;
 
     link.abi = link.rbi;
     ForceVector I_mul_v = link.abi * link.v;
