@@ -32,9 +32,13 @@ struct Link {
 
   JointType joint_type{JOINT_REVOLUTE_Z};
 
-  Transform X_T;               // parent_link_to_joint
-  mutable Transform X_J;       // joint_to_child_link    //depends on q
+  Transform X_T;          // parent_link_to_joint
+  mutable Transform X_J;  // joint_to_child_link    //depends on q
   mutable Transform X_parent;  // parent_link_to_child_link
+
+  // Rheonomic joints may be externally driven.
+  mutable Transform X_J_fixed;
+  mutable MotionVector v_J_fixed;
 
   mutable Transform X_world;  // world_to_link
   mutable MotionVector vJ;    // local joint velocity (relative to parent link)
@@ -209,6 +213,7 @@ struct Link {
       case JOINT_FIXED:
         // Transform is set to identity in its constructor already
         // and never changes.
+        *X_J = X_J_fixed;
         break;
       default:
         fprintf(stderr,
@@ -253,6 +258,7 @@ struct Link {
         break;
       }
       case JOINT_FIXED:
+        *v_J = v_J_fixed;
         break;
       default:
         fprintf(stderr,

@@ -2,9 +2,9 @@
 
 #include <cmath>
 
-#include "math/conditionals.hpp"
 #include "../multi_body.hpp"
 #include "kinematics.hpp"
+#include "math/conditionals.hpp"
 
 namespace tds {
 template <typename Algebra>
@@ -100,15 +100,15 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     auto u_dinv_ut =
         ArticulatedBodyInertia::mul_transpose(link.U, link.U * invD);
 
-    //u_dinv_ut.print("u_dinv_ut\n");
-    //link.abi.print("link.abi\n");
+    // u_dinv_ut.print("u_dinv_ut\n");
+    // link.abi.print("link.abi\n");
     ArticulatedBodyInertia Ia = link.abi - u_dinv_ut;
-    //Ia.print("Ia\n");
-    //ForceVector Ia_c = Ia.mul_inv(link.c);
+    // Ia.print("Ia\n");
+    // ForceVector Ia_c = Ia.mul_inv(link.c);
     ForceVector Ia_c = Ia * link.c;
-    //Ia_c.print("Ia_c\n");
+    // Ia_c.print("Ia_c\n");
     ForceVector UuD = link.U * (link.u * invD);
-    //UuD.print("UuD\n");
+    // UuD.print("UuD\n");
     ForceVector pa = link.pA + Ia_c + UuD;
 #ifdef DEBUG
     Algebra::print("u_dinv_ut", u_dinv_ut);
@@ -190,13 +190,13 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     // model.a[i] = X_parent.apply(model.a[parent]) + model.c[i];
     // LOG << "a'[" << i << "] = " << model.a[i].transpose() << std::endl;
 
-    if (link.qd_index >= 0) {
-      MotionVector x_a = X_parent.apply(a_parent);
-      link.a = x_a + link.c;
+    MotionVector x_a = X_parent.apply(a_parent);
+    link.a = x_a + link.c;
 #if DEBUG
-      Algebra::print("x_a", x_a);
-      Algebra::print("a'", link.a);
+    Algebra::print("x_a", x_a);
+    Algebra::print("a'", link.a);
 #endif
+    if (link.qd_index >= 0) {
       Scalar invD = link.joint_type == JOINT_FIXED ? Algebra::zero()
                                                    : Algebra::one() / link.D;
       Scalar Ut_a = Algebra::dot(link.U, link.a);
