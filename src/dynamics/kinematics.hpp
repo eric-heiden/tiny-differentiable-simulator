@@ -124,13 +124,13 @@ void forward_kinematics(
     Algebra::print("link.pA", link.pA);
 #endif
     // compute helper temporary variables for floating-base RNEA
-    // const SpatialVector &parent_a =
-    //     parent >= 0 ? links[parent].a : mb.base_acceleration_;
-    // link.a = link.X_parent.apply(parent_a) + v_x_vJ;
-    // if (!qdd.empty()) {
-    //   link.a += link.S * get_qdd_for_link(qdd, i);
-    // }
-    // link.f = link.abi * link.a + link.pA;
+    const MotionVector &parent_a =
+        parent >= 0 ? mb[parent].a : mb.base_acceleration();
+    link.a = link.X_parent.apply(parent_a) + v_x_vJ;
+    if (Algebra::size(qdd) > 0) {
+      link.a += link.S * mb.qdd(i);
+    }
+    link.f = link.abi * link.a + link.pA;
   }
 }
 

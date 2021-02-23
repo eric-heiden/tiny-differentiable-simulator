@@ -15,7 +15,7 @@ namespace tds {
  * velocities qd unchanged.
  * @param q Joint positions.
  * @param qd Joint velocities.
- * @param qdd Joint accelerations.
+ * @param qdd_desired Desired joint accelerations.
  * @param gravity Gravity.
  * @param tau Joint forces (output).
  */
@@ -23,7 +23,7 @@ template <typename Algebra>
 void inverse_dynamics(MultiBody<Algebra> &mb,
                       const typename Algebra::VectorX &q,
                       const typename Algebra::VectorX &qd,
-                      const typename Algebra::VectorX &qdd,
+                      const typename Algebra::VectorX &qdd_desired,
                       const typename Algebra::Vector3 &gravity,
                       typename Algebra::VectorX &tau) {
   using Scalar = typename Algebra::Scalar;
@@ -41,7 +41,7 @@ void inverse_dynamics(MultiBody<Algebra> &mb,
 
   assert(Algebra::size(q) == mb.dof());
   assert(Algebra::size(qd) == mb.dof_qd());
-  assert(Algebra::size(qdd) == mb.dof_qd());
+  assert(Algebra::size(qdd_desired) == mb.dof_qd());
   assert(Algebra::size(tau) == mb.dof_actuated());
 
   MotionVector spatial_gravity;
@@ -51,60 +51,64 @@ void inverse_dynamics(MultiBody<Algebra> &mb,
   // used for composite rigid body terms I^c, p^c to avoid introducing more
   // variables
 
-  m_baseAcceleration = spatial_gravity;
-  forward_kinematics(q, qd, qdd);
+  mb.base_acceleration() = spatial_gravity;
+  forward_kinematics(mb, q, qd, qdd_desired);
 
-  if (!m_isFloating) {
-    int tau_index = m_dof - 1;
-    for (int i = static_cast<int>(m_links.size() - 1); i >= 0; i--) {
-      TinyLink &link = m_links[i];
-      int parent = link.m_parent_index;
-      if (link.m_joint_type != JOINT_FIXED) {
-        tau[tau_index] = link.m_S.dot(link.m_f);
+  if (!mb.is_floating()) {
+    int tau_index = mb.dof() - 1;
+    for (int i = static_cast<int>(mb.size() - 1); i >= 0; i--) {
+      Link &link = mb[i];
+      int parent = link.parent_index;
+      if (link.joint_type != JOINT_FIXED) {
+        tau[tau_index] = Algebra::dot(link.S, link.f);
         --tau_index;
       }
       if (parent >= 0) {
-        m_links[parent].m_f += link.m_X_parent2.apply_transpose(link.m_f);
+        // mb[parent].f += link.X_parent.apply_transpose(link.f);
+        mb[parent].f += link.X_parent.apply(link.f);
       }
     }
     return;
   }
 
-  // I_0^c, p_0^c are (partially) computed by forward_kinematics
-  m_baseBiasForce += m_baseInertia.mul_inv(m_baseAcceleration);
+  // TODO fix floating-base case
+  assert(false);
 
-  for (int i = static_cast<int>(m_links.size() - 1); i >= 0; i--) {
-    TinyLink &link = m_links[i];
-    int parent = link.m_parent_index;
-    TinySymmetricSpatialDyad &parent_Ic =
-        parent >= 0 ? m_links[parent].m_IA : m_baseArticulatedInertia;
-    // forward kinematics computes composite rigid-body bias force p^c as f
-    TinySpatialMotionVector &parent_pc =
-        parent >= 0 ? m_links[parent].m_f : m_baseBiasForce;
-    parent_Ic += TinySymmetricSpatialDyad::shift(link.m_IA, link.m_X_parent2);
-    parent_pc += link.m_X_parent2.apply_transpose(link.m_f);
-  }
+  // // I_0^c, p_0^c are (partially) computed by forward_kinematics
+  // mb.base_bias_force() += mb.base_abi().mul_inv(mb.base_acceleration());
 
-  m_baseAcceleration =
-      -m_baseArticulatedInertia.inverse().mul_inv(m_baseBiasForce);
+  // for (int i = static_cast<int>(mb.size() - 1); i >= 0; i--) {
+  //   Link &link = mb[i];
+  //   int parent = link.parent_index;
+  //   ArticulatedBodyInertia &parent_Ic =
+  //       parent >= 0 ? mb[parent].abi : mb.base_abi();
+  //   // forward kinematics computes composite rigid-body bias force p^c as f
+  //   ForceVector &parent_pc = parent >= 0 ? mb[parent].f : mb.base_bias_force();
+  //   parent_Ic += ArticulatedBodyInertia::shift(link.abi, link.X_parent);
+  //   parent_pc += link.X_parent.apply_transpose(link.f);
+  // }
 
-  int tau_index = 0;
-  for (int i = 0; i < static_cast<int>(m_links.size()); i++) {
-    TinyLink &link = m_links[i];
-    //!!! The implementation is different from Featherstone Table 9.6, the
-    //!!! commented-out lines correspond to the book implementation that
-    //!!! leads to forces too low to compensate gravity in the joints (see
-    //!!! gravity_compensation target).
-    //      int parent = link.m_parent_index;
-    //      const TinySpatialMotionVector& parent_a =
-    //          (parent >= 0) ? m_links[parent].m_a : m_baseAcceleration;
-    //
-    //      link.m_a = link.m_X_parent2.apply(parent_a);
+  // mb.base_acceleration() =
+  //     -mb.base_abi().inverse().mul_inv(mb.base_bias_force());
 
-    if (link.m_joint_type != JOINT_FIXED) {
-      tau[tau_index] = link.m_S.dot(
-          link.m_f);  // link.m_S.dot(link.m_IA.mul_inv(link.m_a) + link.m_f);
-      ++tau_index;
-    }
-  }
+  // int tau_index = 0;
+  // for (int i = 0; i < static_cast<int>(mb.size()); i++) {
+  //   Link &link = mb[i];
+  //   //!!! The implementation is different from Featherstone Table 9.6, the
+  //   //!!! commented-out lines correspond to the book implementation that
+  //   //!!! leads to forces too low to compensate gravity in the joints (see
+  //   //!!! gravity_compensation target).
+  //   //      int parent = link.parent_index;
+  //   //      const TinySpatialMotionVector& parent_a =
+  //   //          (parent >= 0) ? mb[parent].m_a : mb.base_acceleration();
+  //   //
+  //   //      link.m_a = link.X_parent.apply(parent_a);
+
+  //   if (link.joint_type != JOINT_FIXED) {
+  //     tau[tau_index] = Algebra::dot(link.S, 
+  //         link.f);  // Algebra::dot(link.S, link.abi.mul_inv(link.m_a) + link.f);
+  //     ++tau_index;
+  //   }
+  // }
+}
 }  // namespace tds
