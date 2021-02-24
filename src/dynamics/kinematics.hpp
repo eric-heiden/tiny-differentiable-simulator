@@ -128,7 +128,8 @@ void forward_kinematics(
         parent >= 0 ? mb[parent].a : mb.base_acceleration();
     link.a = link.X_parent.apply(parent_a) + v_x_vJ;
     if (Algebra::size(qdd) > 0) {
-      link.a += link.S * mb.qdd(i);
+      Scalar qdd_val = mb.get_qd_for_link(qdd, i);
+      link.a += link.S * qdd_val;
     }
     link.f = link.abi * link.a + link.pA;
   }
