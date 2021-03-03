@@ -1,6 +1,6 @@
 #pragma once
 
-#define SWAP_TRANSFORM_ASSOCIATIVITY false
+// #define SWAP_TRANSFORM_ASSOCIATIVITY false
 
 #include "../multi_body.hpp"
 

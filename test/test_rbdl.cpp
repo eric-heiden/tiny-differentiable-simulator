@@ -1,5 +1,8 @@
 #include <gtest/gtest.h>
 
+#define TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS true
+#define SWAP_TRANSFORM_ASSOCIATIVITY true
+
 #include "rbdl_test_utils.hpp"
 
 using namespace tds;
@@ -141,12 +144,12 @@ void TestOnURDF(std::string filename)
       //   exit(1);
       // }
 
-      ASSERT_TRUE(is_equal<Algebra>(*mb, rbdl_model)) << fail_message << i;
+      EXPECT_TRUE(is_equal<Algebra>(*mb, rbdl_model)) << fail_message << i;
 
       // if (!is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd)) {
       //   exit(1);
       // }
-      ASSERT_TRUE(is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd))
+      EXPECT_TRUE(is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd))
           << fail_message << i;
 
       integrate_euler(*mb, dt);
@@ -221,6 +224,10 @@ TEST(RBDLTest, Swimmer05) {
 
 TEST(RBDLTest, Pendulum) {
   TestOnURDF("pendulum5.urdf");
+}
+
+TEST(RBDLTest, Panda) {
+  TestOnURDF("/home/eric/pds-risk-aware/data/franka_panda/panda_with_pendulum.urdf");
 }
 
 int main(int argc, char** argv)

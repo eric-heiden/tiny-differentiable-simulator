@@ -172,11 +172,11 @@ bool is_equal(const typename Algebra::Matrix3 &a,
               const RigidBodyDynamics::Math::Matrix3d &b) {
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+// #ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
       if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
-#else
-      if (std::abs(Algebra::to_double(a(i, j)) - b(j, i)) > ERROR_TOLERANCE) {
-#endif
+// #else
+//       if (std::abs(Algebra::to_double(a(i, j)) - b(j, i)) > ERROR_TOLERANCE) {
+// #endif
         std::cout << "a[" << i << "," << j
                   << "] = " << Algebra::to_double(a(i, j));
         std::cout << "\tb[" << i << "," << j << "] = " << b(i, j);
@@ -238,9 +238,11 @@ bool is_equal(const Transform<Algebra> &a,
 template <typename Algebra>
 bool is_equal(const ArticulatedBodyInertia<Algebra> &a,
               const RigidBodyDynamics::Math::SpatialMatrix &b) {
+                auto ma = a.matrix();
   for (int i = 0; i < 6; ++i) {
     for (int j = 0; j < 6; ++j) {
-      if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
+      if (std::abs(Algebra::to_double(ma(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
+      // if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
         std::cout << "a[" << i << "," << j
                   << "] = " << Algebra::to_double(a(i, j));
         std::cout << "\tb[" << i << "," << j << "] = " << b(i, j);
@@ -262,73 +264,84 @@ bool is_equal(const MultiBody<Algebra> &tds,
   std::size_t id_offset = tds.is_floating() ? 3 : 1;
   for (std::size_t j = 0; j < tds.size(); ++j) {
     std::size_t rbdl_j = j + id_offset;
-    if (!is_equal<Algebra>(tds[j].X_world, rbdl.X_base[rbdl_j])) {
-      fprintf(stderr, "Mismatch in X_base (X_world) at link %i.\n",
+    if (!is_equal<Algebra>(tds[j].X_T, rbdl.X_T[rbdl_j])) {
+      fprintf(stderr, "Mismatch in X_T at link %i.\n",
               static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].X_world);
-      std::cout << "RBDL:\n" << rbdl.X_base[rbdl_j] << std::endl;
-      // return false;
+      Algebra::print("TDS:  ", tds[j].X_T);
+      std::cout << "RBDL:\n" << rbdl.X_T[rbdl_j] << std::endl;
+      return false;
+      std::cout << "\n";
     }
     if (!is_equal<Algebra>(tds[j].X_parent, rbdl.X_lambda[rbdl_j])) {
       fprintf(stderr, "Mismatch in X_lambda (X_parent) at link %i.\n",
               static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].X_parent);
       std::cout << "RBDL:\n" << rbdl.X_lambda[rbdl_j] << std::endl;
-      // return false;
+      return false;
+      std::cout << "\n";
+    }
+    if (!is_equal<Algebra>(tds[j].X_world, rbdl.X_base[rbdl_j])) {
+      fprintf(stderr, "Mismatch in X_base (X_world) at link %i.\n",
+              static_cast<int>(j));
+      Algebra::print("TDS:  ", tds[j].X_world);
+      std::cout << "RBDL:\n" << rbdl.X_base[rbdl_j] << std::endl;
+      std::cout << "\n";
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].S, rbdl.S[rbdl_j])) {
       fprintf(stderr, "Mismatch in S at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].S);
       std::cout << "RBDL: " << rbdl.S[rbdl_j].transpose() << std::endl;
-      // return false;
+      std::cout << "\n";
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].v, rbdl.v[rbdl_j])) {
       fprintf(stderr, "Mismatch in v at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].v);
       std::cout << "RBDL: " << rbdl.v[rbdl_j].transpose() << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].c, rbdl.c[rbdl_j])) {
       fprintf(stderr, "Mismatch in c at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].c);
       std::cout << "RBDL: " << rbdl.c[rbdl_j].transpose() << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].U, rbdl.U[rbdl_j])) {
       fprintf(stderr, "Mismatch in U at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].U);
       std::cout << "RBDL: " << rbdl.U[rbdl_j].transpose() << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].pA, rbdl.pA[rbdl_j])) {
       fprintf(stderr, "Mismatch in pA at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].pA);
       std::cout << "RBDL: " << rbdl.pA[rbdl_j].transpose() << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].abi, rbdl.IA[rbdl_j])) {
       fprintf(stderr, "Mismatch in ABI at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].abi);
       std::cout << "RBDL:\n" << rbdl.IA[rbdl_j] << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].u, rbdl.u[rbdl_j])) {
       fprintf(stderr, "Mismatch in u at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].u);
       std::cout << "RBDL: " << rbdl.u[rbdl_j] << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].D, rbdl.d[rbdl_j])) {
       fprintf(stderr, "Mismatch in D at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].D);
       std::cout << "RBDL: " << rbdl.d[rbdl_j] << std::endl;
-      // return false;
+      return false;
     }
     if (!is_equal<Algebra>(tds[j].a, rbdl.a[rbdl_j])) {
       fprintf(stderr, "Mismatch in a at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].a);
       std::cout << "RBDL: " << rbdl.a[rbdl_j].transpose() << std::endl;
-      // return false;
+      return false;
     }
   }
   return true;

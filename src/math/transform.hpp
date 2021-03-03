@@ -141,28 +141,29 @@ struct Transform {
       return Algebra::transpose(rotation) * (point - translation);
   }
 #else
+// implementation from RBDL
+Transform operator*(const Transform &t) const {
+  Transform tr = *this;
+  // tr.translation = t.translation + t.rotation * translation;
+  tr.translation = t.translation + Algebra::transpose(t.rotation) * translation;
+  tr.rotation *= t.rotation;
+  return tr;
+}
 // Transform operator*(const Transform &t) const {
 //   Transform tr = *this;
 //   tr.translation = t.translation + t.rotation * translation;
-//   // tr.translation = t.translation + Algebra::transpose(t.rotation) * translation;
 //   tr.rotation *= t.rotation;
 //   return tr;
 // }
-// Transform operator*(const Transform &t) const {
-//   Transform tr = *this;
-//   tr.translation = t.translation + t.rotation * translation;
-//   tr.rotation *= t.rotation;
-//   return tr;
-// }
-  Transform operator*(const Transform &t) const {
-    /// XXX this is different from Featherstone: we assume transforms are
-    /// right-associative
-    Transform tr = *this;
-    tr.translation += Algebra::transpose(rotation) * t.translation;
-    // tr.translation += rotation * t.translation;
-    tr.rotation *= t.rotation;
-    return tr;
-  }
+  // Transform operator*(const Transform &t) const {
+  //   /// XXX this is different from Featherstone: we assume transforms are
+  //   /// right-associative
+  //   Transform tr = *this;
+  //   // tr.translation += Algebra::transpose(rotation) * t.translation;
+  //   tr.translation += rotation * t.translation;
+  //   tr.rotation *= t.rotation;
+  //   return tr;
+  // }
   TINY_INLINE Vector3 apply(const Vector3 &point) const {
     return rotation * point + translation;
   }
@@ -185,15 +186,32 @@ struct Transform {
   // }
 #endif
 
+//   Transform inverse() const {
+// #if RIGHT_ASSOCIATIVE_TRANSFORMS
+//     const Matrix3 &Et = rotation;
+// #else
+//     Matrix3 Et = Algebra::transpose(rotation);
+// #endif
+//     Transform inv;
+//     inv.rotation = Et;
+//     inv.translation = Et * -translation;
+//     return inv;
+//   }
+
+/**
+ * X^-1 = plx(ET, -E r)
+ */
   Transform inverse() const {
 #if RIGHT_ASSOCIATIVE_TRANSFORMS
-    const Matrix3 &Et = rotation;
+    const Matrix3 &E = rotation;
+    Matrix3 Et = Algebra::transpose(rotation);
 #else
+    const Matrix3 &E = rotation;
     Matrix3 Et = Algebra::transpose(rotation);
 #endif
     Transform inv;
     inv.rotation = Et;
-    inv.translation = Et * -translation;
+    inv.translation = E * -translation;
     return inv;
   }
 
@@ -273,109 +291,109 @@ struct Transform {
     return outVec;
   }
 
-  /**
-   * Computes \f$ X^* I X^{-1} \f$.
-   */
-  inline RigidBodyInertia apply(const RigidBodyInertia &rbi) const {
-#if RIGHT_ASSOCIATIVE_TRANSFORMS
-    const Matrix3 &Et = rotation;
-    Matrix3 E = Algebra::transpose(rotation);
-#else
-    const Matrix3 &E = rotation;
-    Matrix3 Et = Algebra::transpose(rotation);
-#endif
-    RigidBodyInertia result(rbi.mass);
-    const Matrix3 rx = Algebra::cross_matrix(translation);
-    // E(I + rx hx + (h - mr)x rx) E^T
-    result.inertia =
-        E *
-        (rbi.inertia + rx * Algebra::cross_matrix(rbi.com) +
-         Algebra::cross_matrix(rbi.com - rbi.mass * translation) * rx) *
-        Et;
-    // E(h - mr)
-    result.com = E * (rbi.com - rbi.mass * translation);
-    return result;
-  }
+//   /**
+//    * Computes \f$ X^* I X^{-1} \f$.
+//    */
+//   inline RigidBodyInertia apply(const RigidBodyInertia &rbi) const {
+// #if RIGHT_ASSOCIATIVE_TRANSFORMS
+//     const Matrix3 &Et = rotation;
+//     Matrix3 E = Algebra::transpose(rotation);
+// #else
+//     const Matrix3 &E = rotation;
+//     Matrix3 Et = Algebra::transpose(rotation);
+// #endif
+//     RigidBodyInertia result(rbi.mass);
+//     const Matrix3 rx = Algebra::cross_matrix(translation);
+//     // E(I + rx hx + (h - mr)x rx) E^T
+//     result.inertia =
+//         E *
+//         (rbi.inertia + rx * Algebra::cross_matrix(rbi.com) +
+//          Algebra::cross_matrix(rbi.com - rbi.mass * translation) * rx) *
+//         Et;
+//     // E(h - mr)
+//     result.com = E * (rbi.com - rbi.mass * translation);
+//     return result;
+//   }
 
-  /**
-   * Computes \f$ X^T I X \f$.
-   */
-  inline RigidBodyInertia apply_transpose(const RigidBodyInertia &rbi) const {
-#if RIGHT_ASSOCIATIVE_TRANSFORMS
-    const Matrix3 &Et = rotation;
-    Matrix3 E = Algebra::transpose(rotation);
-#else
-    const Matrix3 &E = rotation;
-    Matrix3 Et = Algebra::transpose(rotation);
-#endif
-    RigidBodyInertia result(rbi.mass);
-    // E^T h + mr
-    const Vector3 Eth_mr = Et * rbi.com + rbi.mass * translation;
-    const Matrix3 rx = Algebra::cross_matrix(translation);
-    // E^T I E - rx(E^T h)x - (E^T h + mr)x rx
-    result.inertia =
-        (Et * rbi.inertia * E - rx * Algebra::cross_matrix(Et * rbi.com) -
-         Algebra::cross_matrix(Eth_mr) * rx);
-    // E^T h + mr
-    result.com = Eth_mr;
-    return result;
-  }
+//   /**
+//    * Computes \f$ X^T I X \f$.
+//    */
+//   inline RigidBodyInertia apply_transpose(const RigidBodyInertia &rbi) const {
+// #if RIGHT_ASSOCIATIVE_TRANSFORMS
+//     const Matrix3 &Et = rotation;
+//     Matrix3 E = Algebra::transpose(rotation);
+// #else
+//     const Matrix3 &E = rotation;
+//     Matrix3 Et = Algebra::transpose(rotation);
+// #endif
+//     RigidBodyInertia result(rbi.mass);
+//     // E^T h + mr
+//     const Vector3 Eth_mr = Et * rbi.com + rbi.mass * translation;
+//     const Matrix3 rx = Algebra::cross_matrix(translation);
+//     // E^T I E - rx(E^T h)x - (E^T h + mr)x rx
+//     result.inertia =
+//         (Et * rbi.inertia * E - rx * Algebra::cross_matrix(Et * rbi.com) -
+//          Algebra::cross_matrix(Eth_mr) * rx);
+//     // E^T h + mr
+//     result.com = Eth_mr;
+//     return result;
+//   }
 
-  /**
-   * Computes \f$ X^* I^A X^{-1} \f$.
-   */
-  inline ArticulatedBodyInertia apply(const ArticulatedBodyInertia &abi) const {
-#if RIGHT_ASSOCIATIVE_TRANSFORMS
-    const Matrix3 &Et = rotation;
-    Matrix3 E = Algebra::transpose(rotation);
-#else
-    const Matrix3 &E = rotation;
-    Matrix3 Et = Algebra::transpose(rotation);
-#endif
-    // modified version that matches the output of RBDL
-    ArticulatedBodyInertia result;
-    const Matrix3 rx = Algebra::cross_matrix(translation);
-    // M' = E^T M E
-    const Matrix3 Mp = Et * abi.M * E;
-    result.M = Mp;
-    // H' = E^T H E
-    const Matrix3 Hp = Et * abi.H * E;
-    // H' + rx M'
-    const Matrix3 HrxM = Hp + rx * Mp;
-    // E^T I E - rx H'^T - (H' + rx M') rx
-    result.I = Et * abi.I * E - rx * Algebra::transpose(Hp) - HrxM * rx;
-    // H' + rx M'
-    result.H = HrxM;
-    return result;
-  }
+//   /**
+//    * Computes \f$ X^* I^A X^{-1} \f$.
+//    */
+//   inline ArticulatedBodyInertia apply(const ArticulatedBodyInertia &abi) const {
+// #if RIGHT_ASSOCIATIVE_TRANSFORMS
+//     const Matrix3 &Et = rotation;
+//     Matrix3 E = Algebra::transpose(rotation);
+// #else
+//     const Matrix3 &E = rotation;
+//     Matrix3 Et = Algebra::transpose(rotation);
+// #endif
+//     // modified version that matches the output of RBDL
+//     ArticulatedBodyInertia result;
+//     const Matrix3 rx = Algebra::cross_matrix(translation);
+//     // M' = E^T M E
+//     const Matrix3 Mp = Et * abi.M * E;
+//     result.M = Mp;
+//     // H' = E^T H E
+//     const Matrix3 Hp = Et * abi.H * E;
+//     // H' + rx M'
+//     const Matrix3 HrxM = Hp + rx * Mp;
+//     // E^T I E - rx H'^T - (H' + rx M') rx
+//     result.I = Et * abi.I * E - rx * Algebra::transpose(Hp) - HrxM * rx;
+//     // H' + rx M'
+//     result.H = HrxM;
+//     return result;
+//   }
 
-  /**
-   * Computes \f$ X^T I^A X \f$.
-   */
-  inline ArticulatedBodyInertia apply_transpose(
-      const ArticulatedBodyInertia &abi) const {
-#if RIGHT_ASSOCIATIVE_TRANSFORMS
-    const Matrix3 &Et = rotation;
-    Matrix3 E = Algebra::transpose(rotation);
-#else
-    const Matrix3 &E = rotation;
-    Matrix3 Et = Algebra::transpose(rotation);
-#endif
-    ArticulatedBodyInertia result;
-    const Matrix3 rx = Algebra::cross_matrix(translation);
-    // M' = E^T M E
-    const Matrix3 Mp = Et * abi.M * E;
-    result.M = Mp;
-    // H' = E^T H E
-    const Matrix3 Hp = Et * abi.H * E;
-    // H' + rx M'
-    const Matrix3 HrxM = Hp + rx * Mp;
-    // E^T I E - rx H'^T - (H' + rx M') rx
-    result.I = Et * abi.I * E - rx * Algebra::transpose(Hp) - HrxM * rx;
-    // H' + rx M'
-    result.H = HrxM;
-    return result;
-  }
+//   /**
+//    * Computes \f$ X^T I^A X \f$.
+//    */
+//   inline ArticulatedBodyInertia apply_transpose(
+//       const ArticulatedBodyInertia &abi) const {
+// #if RIGHT_ASSOCIATIVE_TRANSFORMS
+//     const Matrix3 &Et = rotation;
+//     Matrix3 E = Algebra::transpose(rotation);
+// #else
+//     const Matrix3 &E = rotation;
+//     Matrix3 Et = Algebra::transpose(rotation);
+// #endif
+//     ArticulatedBodyInertia result;
+//     const Matrix3 rx = Algebra::cross_matrix(translation);
+//     // M' = E^T M E
+//     const Matrix3 Mp = Et * abi.M * E;
+//     result.M = Mp;
+//     // H' = E^T H E
+//     const Matrix3 Hp = Et * abi.H * E;
+//     // H' + rx M'
+//     const Matrix3 HrxM = Hp + rx * Mp;
+//     // E^T I E - rx H'^T - (H' + rx M') rx
+//     result.I = Et * abi.I * E - rx * Algebra::transpose(Hp) - HrxM * rx;
+//     // H' + rx M'
+//     result.H = HrxM;
+//     return result;
+//   }
 };
 
 template <typename AlgebraFrom, typename AlgebraTo = AlgebraFrom>
