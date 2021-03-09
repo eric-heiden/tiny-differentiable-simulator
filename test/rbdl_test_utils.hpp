@@ -7,7 +7,6 @@
 
 // #define USE_MATPLOTLIB 1
 
-
 #include "base.hpp"
 #include "dynamics/forward_dynamics.hpp"
 #include "dynamics/integrator.hpp"
@@ -21,7 +20,7 @@
 #else
 #include "urdf/urdf_parser.hpp"
 #include "urdf/urdf_to_multi_body.hpp"
-#endif //USE_BULLET_URDF_PARSER
+#endif  // USE_BULLET_URDF_PARSER
 #include "utils/file_utils.hpp"
 #include "world.hpp"
 
@@ -33,8 +32,7 @@
 
 using namespace tds;
 
-const double ERROR_TOLERANCE = 1e-2;
-
+const double ERROR_TOLERANCE = 1e-4;
 
 #if USE_RBDL
 template <typename Algebra>
@@ -55,10 +53,26 @@ RigidBodyDynamics::Math::Matrix3d to_rbdl(const typename Algebra::Matrix3 &m) {
 }
 
 template <typename Algebra>
+RigidBodyDynamics::Math::SpatialVector to_rbdl(
+    const SpatialVector<Algebra> &v) {
+  return RigidBodyDynamics::Math::SpatialVector(
+      Algebra::to_double(v[0]), Algebra::to_double(v[1]),
+      Algebra::to_double(v[2]), Algebra::to_double(v[3]),
+      Algebra::to_double(v[4]), Algebra::to_double(v[5]));
+}
+
+template <typename Algebra>
 RigidBodyDynamics::Math::SpatialTransform to_rbdl(
     const Transform<Algebra> &tf) {
+#if TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
   return RigidBodyDynamics::Math::SpatialTransform(
       to_rbdl<Algebra>(tf.rotation), to_rbdl<Algebra>(tf.translation));
+#else
+  // Transform<Algebra> inv_tf = tf.inverse();
+  const auto rot = to_rbdl<Algebra>(tf.rotation);
+  return RigidBodyDynamics::Math::SpatialTransform(
+      rot.transpose(), to_rbdl<Algebra>(tf.translation));
+#endif
 }
 
 template <typename Algebra>
@@ -172,11 +186,26 @@ bool is_equal(const typename Algebra::Matrix3 &a,
               const RigidBodyDynamics::Math::Matrix3d &b) {
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {
-// #ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
       if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
-// #else
-//       if (std::abs(Algebra::to_double(a(i, j)) - b(j, i)) > ERROR_TOLERANCE) {
-// #endif
+        std::cout << "a[" << i << "," << j
+                  << "] = " << Algebra::to_double(a(i, j));
+        std::cout << "\tb[" << i << "," << j << "] = " << b(i, j);
+        std::cout << "\terror = "
+                  << std::abs(Algebra::to_double(a(i, j)) - b(i, j))
+                  << std::endl;
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+template <typename Algebra>
+bool is_equal(const typename Algebra::Matrix6 &a,
+              const RigidBodyDynamics::Math::SpatialMatrix &b) {
+  for (int i = 0; i < 6; ++i) {
+    for (int j = 0; j < 6; ++j) {
+      if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
         std::cout << "a[" << i << "," << j
                   << "] = " << Algebra::to_double(a(i, j));
         std::cout << "\tb[" << i << "," << j << "] = " << b(i, j);
@@ -231,18 +260,32 @@ bool is_equal(const typename Algebra::Matrix3X &a,
 template <typename Algebra>
 bool is_equal(const Transform<Algebra> &a,
               const RigidBodyDynamics::Math::SpatialTransform &b) {
+  // #if TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+  // return is_equal<Algebra>(a.translation, b.r) &&
+  //        is_equal<Algebra>(a.rotation, b.E);
+  // #else
   return is_equal<Algebra>(a.translation, b.r) &&
-         is_equal<Algebra>(a.rotation, b.E);
+         is_equal<Algebra>(a.rotation, b.E.transpose().eval());
+  // #endif
+}
+
+template <typename Algebra>
+bool is_equal(const RigidBodyInertia<Algebra> &a,
+              const RigidBodyDynamics::Math::SpatialRigidBodyInertia &b) {
+  auto am = ArticulatedBodyInertia<Algebra>(a).matrix();
+  auto bm = b.toMatrix();
+  return is_equal<Algebra>(am, bm);
 }
 
 template <typename Algebra>
 bool is_equal(const ArticulatedBodyInertia<Algebra> &a,
               const RigidBodyDynamics::Math::SpatialMatrix &b) {
-                auto ma = a.matrix();
+  auto ma = a.matrix();
   for (int i = 0; i < 6; ++i) {
     for (int j = 0; j < 6; ++j) {
       if (std::abs(Algebra::to_double(ma(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
-      // if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
+        // if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) >
+        // ERROR_TOLERANCE) {
         std::cout << "a[" << i << "," << j
                   << "] = " << Algebra::to_double(a(i, j));
         std::cout << "\tb[" << i << "," << j << "] = " << b(i, j);
@@ -258,21 +301,22 @@ bool is_equal(const ArticulatedBodyInertia<Algebra> &a,
 
 template <typename Algebra>
 bool is_equal(const MultiBody<Algebra> &tds,
-              const RigidBodyDynamics::Model &rbdl) {
+              const RigidBodyDynamics::Model &rbdl,
+              bool check_dynamics = true) {
   // floating-base models in RBDL have a TranslationXYZ and a spherical joint
   // first
-  std::size_t id_offset = tds.is_floating() ? 3 : 1;
+  const std::size_t id_offset = tds.is_floating() ? 3 : 1;
   for (std::size_t j = 0; j < tds.size(); ++j) {
     std::size_t rbdl_j = j + id_offset;
+    // X_T must match literally no matter the transform associativity
     if (!is_equal<Algebra>(tds[j].X_T, rbdl.X_T[rbdl_j])) {
-      fprintf(stderr, "Mismatch in X_T at link %i.\n",
-              static_cast<int>(j));
+      fprintf(stderr, "Mismatch in X_T at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].X_T);
       std::cout << "RBDL:\n" << rbdl.X_T[rbdl_j] << std::endl;
       return false;
       std::cout << "\n";
     }
-    if (!is_equal<Algebra>(tds[j].X_parent, rbdl.X_lambda[rbdl_j])) {
+    if (!is_equal<Algebra>(tds[j].X_T, rbdl.X_lambda[rbdl_j])) {
       fprintf(stderr, "Mismatch in X_lambda (X_parent) at link %i.\n",
               static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].X_parent);
@@ -301,42 +345,62 @@ bool is_equal(const MultiBody<Algebra> &tds,
       std::cout << "RBDL: " << rbdl.v[rbdl_j].transpose() << std::endl;
       return false;
     }
-    if (!is_equal<Algebra>(tds[j].c, rbdl.c[rbdl_j])) {
-      fprintf(stderr, "Mismatch in c at link %i.\n", static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].c);
-      std::cout << "RBDL: " << rbdl.c[rbdl_j].transpose() << std::endl;
+    if (check_dynamics) {
+      if (!is_equal<Algebra>(tds[j].c, rbdl.c[rbdl_j])) {
+        fprintf(stderr, "Mismatch in c at link %i.\n", static_cast<int>(j));
+        Algebra::print("TDS:  ", tds[j].c);
+        std::cout << "RBDL: " << rbdl.c[rbdl_j].transpose() << std::endl;
+        return false;
+      }
+    }
+    if (!is_equal<Algebra>(tds[j].rbi, rbdl.Ic[rbdl_j])) {
+      fprintf(stderr, "Mismatch in RBI at link %i.\n", static_cast<int>(j));
+      Algebra::print("TDS:  ", tds[j].rbi);
+      std::cout << "RBDL: " << rbdl.Ic[rbdl_j] << std::endl;
       return false;
     }
-    if (!is_equal<Algebra>(tds[j].U, rbdl.U[rbdl_j])) {
-      fprintf(stderr, "Mismatch in U at link %i.\n", static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].U);
-      std::cout << "RBDL: " << rbdl.U[rbdl_j].transpose() << std::endl;
-      return false;
+  }
+
+  if (check_dynamics) {
+    // check quantities from second (reverse) loop in ABA
+    for (int j = static_cast<int>(tds.size()) - 1; j >= 0; --j) {
+      const int rbdl_j = j + id_offset;
+      if (!is_equal<Algebra>(tds[j].abi, rbdl.IA[rbdl_j])) {
+        fprintf(stderr, "Mismatch in ABI at link %i.\n", j);
+        Algebra::print("TDS:  ", tds[j].abi);
+        std::cout << "RBDL:\n" << rbdl.IA[rbdl_j] << std::endl;
+        return false;
+      }
+      if (!is_equal<Algebra>(tds[j].U, rbdl.U[rbdl_j])) {
+        fprintf(stderr, "Mismatch in U at link %i.\n", j);
+        Algebra::print("TDS:  ", tds[j].U);
+        std::cout << "RBDL: " << rbdl.U[rbdl_j].transpose() << std::endl;
+        return false;
+      }
+      if (!is_equal<Algebra>(tds[j].pA, rbdl.pA[rbdl_j])) {
+        fprintf(stderr, "Mismatch in pA at link %i.\n", j);
+        Algebra::print("TDS:  ", tds[j].pA);
+        std::cout << "RBDL: " << rbdl.pA[rbdl_j].transpose() << std::endl;
+        return false;
+      }
+      if (!is_equal<Algebra>(tds[j].u, rbdl.u[rbdl_j])) {
+        fprintf(stderr, "Mismatch in u at link %i.\n", j);
+        Algebra::print("TDS:  ", tds[j].u);
+        std::cout << "RBDL: " << rbdl.u[rbdl_j] << std::endl;
+        return false;
+      }
+      if (!is_equal<Algebra>(tds[j].D, rbdl.d[rbdl_j])) {
+        fprintf(stderr, "Mismatch in D at link %i.\n", j);
+        Algebra::print("TDS:  ", tds[j].D);
+        std::cout << "RBDL: " << rbdl.d[rbdl_j] << std::endl;
+        return false;
+      }
     }
-    if (!is_equal<Algebra>(tds[j].pA, rbdl.pA[rbdl_j])) {
-      fprintf(stderr, "Mismatch in pA at link %i.\n", static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].pA);
-      std::cout << "RBDL: " << rbdl.pA[rbdl_j].transpose() << std::endl;
-      return false;
-    }
-    if (!is_equal<Algebra>(tds[j].abi, rbdl.IA[rbdl_j])) {
-      fprintf(stderr, "Mismatch in ABI at link %i.\n", static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].abi);
-      std::cout << "RBDL:\n" << rbdl.IA[rbdl_j] << std::endl;
-      return false;
-    }
-    if (!is_equal<Algebra>(tds[j].u, rbdl.u[rbdl_j])) {
-      fprintf(stderr, "Mismatch in u at link %i.\n", static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].u);
-      std::cout << "RBDL: " << rbdl.u[rbdl_j] << std::endl;
-      return false;
-    }
-    if (!is_equal<Algebra>(tds[j].D, rbdl.d[rbdl_j])) {
-      fprintf(stderr, "Mismatch in D at link %i.\n", static_cast<int>(j));
-      Algebra::print("TDS:  ", tds[j].D);
-      std::cout << "RBDL: " << rbdl.d[rbdl_j] << std::endl;
-      return false;
-    }
+  }
+
+  for (std::size_t j = 0; j < tds.size(); ++j) {
+    std::size_t rbdl_j = j + id_offset;
+
     if (!is_equal<Algebra>(tds[j].a, rbdl.a[rbdl_j])) {
       fprintf(stderr, "Mismatch in a at link %i.\n", static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].a);
@@ -344,6 +408,7 @@ bool is_equal(const MultiBody<Algebra> &tds,
       return false;
     }
   }
+
   return true;
 }
 
@@ -405,4 +470,3 @@ bool is_equal(const MultiBody<Algebra> &tds,
   return true;
 }
 #endif
-

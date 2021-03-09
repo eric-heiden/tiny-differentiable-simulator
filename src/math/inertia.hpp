@@ -30,11 +30,18 @@ struct RigidBodyInertia {
 
   RigidBodyInertia(const RigidBodyInertia<Algebra> &rbi) = default;
 
-  RigidBodyInertia(const Scalar &mass) : mass(mass) {}
+  RigidBodyInertia(const Scalar &mass) : mass(mass) {
+    assert(mass >= Algebra::zero());
+  }
 
   RigidBodyInertia(const Scalar &mass, const Vector3 &com,
                    const Matrix3 &inertia)
-      : mass(mass), com(com), inertia(inertia) {}
+      : mass(mass), com(com), inertia(inertia) {
+    // inertia matrix has to be symmetric
+    assert(inertia(0, 1) == inertia(1, 0));
+    assert(inertia(0, 2) == inertia(2, 0));
+    assert(inertia(1, 2) == inertia(2, 1));
+  }
 
   RigidBodyInertia(const Matrix6 &m)
       : mass(m(3, 3)),

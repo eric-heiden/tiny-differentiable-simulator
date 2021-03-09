@@ -88,8 +88,16 @@ void forward_dynamics(MultiBody<Algebra> &mb,
       assert(link.joint_type == JOINT_FIXED ||
              Algebra::to_double(Algebra::abs(link.D)) > 0.0);
     } else {
-      assert(link.joint_type == JOINT_FIXED ||
-             Algebra::abs(link.D) > Algebra::zero());
+      // if (!(link.joint_type == JOINT_FIXED ||
+      //        Algebra::abs(link.D) > Algebra::zero())) {
+      //   Algebra::print("Algebra::abs(link.D)", Algebra::abs(link.D));
+      //   std::cerr << "Algebra::abs(link.D) > Algebra::zero()" <<  (Algebra::abs(link.D) > Algebra::zero()) << std::endl;
+      //   std::cerr << "D: " << Algebra::to_double(link.D) << std::endl;
+      //   double aD = Algebra::to_double(Algebra::abs(link.D));
+      //   std::cerr << "aD: " << aD << std::endl;
+      // }
+      // assert(link.joint_type == JOINT_FIXED ||
+      //        Algebra::abs(link.D) > Algebra::zero());
     }
     Scalar invD = link.joint_type == JOINT_FIXED ? Algebra::zero()
                                                  : Algebra::one() / link.D;
@@ -97,6 +105,7 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     printf("invD[%d]=%f\n", i, Algebra::to_double(invD));
 #endif
     auto tmp = link.U * invD;
+
     auto u_dinv_ut =
         ArticulatedBodyInertia::mul_transpose(link.U, link.U * invD);
 
@@ -125,6 +134,8 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     // ArticulatedBodyInertia delta_I = link.X_parent.apply_transpose(Ia);
     Matrix6 xix =
         link.X_parent.matrix_transpose() * Ia.matrix() * link.X_parent.matrix();
+    // Matrix6 xix =
+    //     link.X_parent.matrix() * Ia.matrix() * link.X_parent.matrix_transpose();
     ArticulatedBodyInertia delta_I = xix;
     if (parent >= 0) {
       // Algebra::print(
