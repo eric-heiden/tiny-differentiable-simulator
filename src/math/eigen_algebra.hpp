@@ -226,11 +226,7 @@ struct EigenAlgebraT {
 
   EIGEN_ALWAYS_INLINE static Matrix3 cross_matrix(const Vector3 &v) {
     Matrix3 tmp;
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
-    tmp << zero(), v[2], -v[1], -v[2], zero(), v[0], v[1], -v[0], zero();
-#else
     tmp << zero(), -v[2], v[1], v[2], zero(), -v[0], -v[1], v[0], zero();
-#endif
     return tmp;
   }
 

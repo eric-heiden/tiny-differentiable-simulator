@@ -23,8 +23,8 @@
 #include "tiny_vector3.h"
 #include "math/eigen_algebra.hpp"
 
-/// By default, TinyMatrix3x3 is a row-major right-associative multiplicatoin unless
-/// TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS is defined, then it becomes columm-major storage and left-associative multiplication (testing/comparison) 
+/// By default, TinyMatrix3x3 is a row-major right-associative multiplication unless
+/// TDS_USE_COLUMN_MAJOR is defined, then it becomes columm-major storage and left-associative multiplication (testing/comparison) 
 
 namespace TINY
 {
@@ -75,14 +75,14 @@ class TinyMatrix3x3 {
 
   inline TinyMatrix3x3& operator*=(const TinyMatrix3x3& m) {
 
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   setValue(tdotx(m[0]), tdotx(m[1]), tdotx(m[2]), tdoty(m[0]), tdoty(m[1]),
             tdoty(m[2]), tdotz(m[0]), tdotz(m[1]), tdotz(m[2]));
 #else
     setValue(m.tdotx(m_el[0]), m.tdoty(m_el[0]), m.tdotz(m_el[0]),
              m.tdotx(m_el[1]), m.tdoty(m_el[1]), m.tdotz(m_el[1]),
              m.tdotx(m_el[2]), m.tdoty(m_el[2]), m.tdotz(m_el[2]));
-#endif //TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#endif //TDS_USE_COLUMN_MAJOR
     return *this;
   }
 
@@ -108,7 +108,7 @@ class TinyMatrix3x3 {
                 const TinyScalar& yy, const TinyScalar& yz,
                 const TinyScalar& zx, const TinyScalar& zy,
                 const TinyScalar& zz) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
     m_el[0].setValue(xx, yx, zx);
     m_el[1].setValue(xy, yy, zy);
     m_el[2].setValue(xz, yz, zz);
@@ -118,7 +118,7 @@ class TinyMatrix3x3 {
     m_el[2].setValue(zx, zy, zz);
 #endif
 }
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   inline const TinyScalar& get_at(int row, int col) const {
 	  TinyConstants::FullAssert(0 <= row && row < 3);
 	  TinyConstants::FullAssert(0 <= col && col < 3);
@@ -172,11 +172,11 @@ class TinyMatrix3x3 {
   inline const TinyScalar& operator()(int row, int col) const {
     TinyConstants::FullAssert(0 <= row && row < 3);
     TinyConstants::FullAssert(0 <= col && col < 3);
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
     return m_el[col][row];
 #else
     return m_el[row][col];
-#endif //TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#endif //TDS_USE_COLUMN_MAJOR
   }
 
 
@@ -254,7 +254,7 @@ class TinyMatrix3x3 {
              TinyConstants::convert(0));
   }
 
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   inline TinyScalar tdotx(const TinyVector3& v) const {
     return getRow(0).dot(v);
   }
@@ -421,7 +421,7 @@ class TinyMatrix3x3 {
    *  @param m matrix to be applied
    * Equivilant to this = this + m */
   TinyMatrix3x3& operator+=(const TinyMatrix3x3& m) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
     m_el[0] += m[0];
     m_el[1] += m[1];
     m_el[2] += m[2];
@@ -440,7 +440,7 @@ class TinyMatrix3x3 {
    *  @param m matrix to be applied
    * Equivilant to this = this - m */
   TinyMatrix3x3& operator-=(const TinyMatrix3x3& m) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
     m_el[0] -= m[0];
     m_el[1] -= m[1];
     m_el[2] -= m[2];
@@ -454,7 +454,7 @@ class TinyMatrix3x3 {
     return *this;
   }
 
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   /** @brief Get a row of the matrix as a vector
    *  @param i Row number 0 indexed */
   inline const TinyVector3 getRow(int i) const {
@@ -468,7 +468,7 @@ class TinyMatrix3x3 {
     TinyConstants::FullAssert(0 <= i && i < 3);
     return m_el[i];
   }
-#endif// TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#endif// TDS_USE_COLUMN_MAJOR
   void print(const char* txt) const {
     printf("%s\n", txt);
     for (int r = 0; r < 3; r++) {
@@ -488,7 +488,7 @@ class TinyMatrix3x3 {
     // btFullAssert(det != TinyScalar(0.0));
     TinyConstants::FullAssert(det != TinyConstants::zero());
     TinyScalar s = TinyConstants::one() / det;
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
    return TinyMatrix3x3(co.x() * s, co.y() * s, co.z() * s,
                          cofac(0, 2, 2, 1) * s, cofac(0, 0, 2, 2) * s,
                          cofac(0, 1, 2, 0) * s, cofac(0, 1, 1, 2) * s,
@@ -517,7 +517,7 @@ class TinyMatrix3x3 {
     return m_el[r1][c1] * m_el[r2][c2] - m_el[r1][c2] * m_el[r2][c1];
   }
 
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   TinyScalar determinant() const {
     TinyVector3 co(cofac(1, 1, 2, 2), cofac(1, 2, 2, 0), cofac(1, 0, 2, 1));
     TinyScalar det = (*this)[0].dot(co);
@@ -546,7 +546,7 @@ class TinyMatrix3x3 {
     return identityMatrix;
   }
 
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   inline TinyVector3 dot(const TinyVector3& v) const {
     return TinyVector3(getRow(0).dot(v), getRow(1).dot(v), getRow(2).dot(v));
   }
@@ -934,7 +934,7 @@ template <typename TinyScalar, typename TinyConstants>
 inline TinyVector3<TinyScalar, TinyConstants> operator*(
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m,
     const TinyVector3<TinyScalar, TinyConstants>& v) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   return TinyVector3<TinyScalar, TinyConstants>(
       m.getRow(0).dot(v), m.getRow(1).dot(v), m.getRow(2).dot(v));
 #else
@@ -946,7 +946,7 @@ inline TinyVector3<TinyScalar, TinyConstants> operator*(
 template <typename TinyScalar, typename TinyConstants>
 inline TinyMatrix3x3<TinyScalar, TinyConstants>
 TinyMatrix3x3<TinyScalar, TinyConstants>::transpose() const {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   return TinyMatrix3x3<TinyScalar, TinyConstants>(getRow(0), getRow(1),
                                                   getRow(2));
 #else
@@ -969,7 +969,7 @@ inline TinyMatrix3x3<TinyScalar, TinyConstants> TinyVectorCrossMatrix(
 template <typename TinyScalar, typename TinyConstants>
 inline TinyMatrix3x3<TinyScalar, TinyConstants> operator*(
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m, const TinyScalar& k) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   return TinyMatrix3x3<TinyScalar, TinyConstants>(m[0] * k, m[1] * k, m[2] * k);
 #else
   return TinyMatrix3x3<TinyScalar, TinyConstants>(
@@ -982,7 +982,7 @@ template <typename TinyScalar, typename TinyConstants>
 inline TinyMatrix3x3<TinyScalar, TinyConstants> operator+(
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m1,
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m2) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   return TinyMatrix3x3<TinyScalar, TinyConstants>(m1[0] + m2[0], m1[1] + m2[1],
                                                   m1[2] + m2[2]);
 #else
@@ -998,7 +998,7 @@ template <typename TinyScalar, typename TinyConstants>
 inline TinyMatrix3x3<TinyScalar, TinyConstants> operator-(
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m1,
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m2) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   return TinyMatrix3x3<TinyScalar, TinyConstants>(m1[0] - m2[0], m1[1] - m2[1],
                                                   m1[2] - m2[2]);
 #else
@@ -1014,7 +1014,7 @@ template <typename TinyScalar, typename TinyConstants>
 inline TinyMatrix3x3<TinyScalar, TinyConstants> operator*(
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m1,
     const TinyMatrix3x3<TinyScalar, TinyConstants>& m2) {
-#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+#ifdef TDS_USE_COLUMN_MAJOR
   return TinyMatrix3x3<TinyScalar, TinyConstants>(
       m1.tdotx(m2[0]), m1.tdotx(m2[1]), m1.tdotx(m2[2]), m1.tdoty(m2[0]),
       m1.tdoty(m2[1]), m1.tdoty(m2[2]), m1.tdotz(m2[0]), m1.tdotz(m2[1]),
