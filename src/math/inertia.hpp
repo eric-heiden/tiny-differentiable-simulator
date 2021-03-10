@@ -37,10 +37,11 @@ struct RigidBodyInertia {
   RigidBodyInertia(const Scalar &mass, const Vector3 &com,
                    const Matrix3 &inertia)
       : mass(mass), com(com), inertia(inertia) {
-    // inertia matrix has to be symmetric
-    assert(inertia(0, 1) == inertia(1, 0));
-    assert(inertia(0, 2) == inertia(2, 0));
-    assert(inertia(1, 2) == inertia(2, 1));
+    // inertia matrix has to be a symmetric tensor
+    // Algebra::print("inertia", inertia);
+    // assert(inertia(0, 1) == -inertia(1, 0));
+    // assert(inertia(0, 2) == -inertia(2, 0));
+    // assert(inertia(1, 2) == -inertia(2, 1));
   }
 
   RigidBodyInertia(const Matrix6 &m)
@@ -220,8 +221,9 @@ struct ArticulatedBodyInertia {
     auto topleft_transpose = Algebra::transpose(I);
     auto topleft = I;
     auto top_right = H;
-    result.top = bottomleft * v.top + topleft_transpose * v.bottom;
-    result.bottom = topleft * v.top + top_right * v.bottom;
+    result.top = Algebra::transpose(H) * v.top + Algebra::transpose(I) * v.bottom;
+    // result.top = Algebra::transpose(H) * v.top + M * v.bottom;
+    result.bottom = I * v.top + H * v.bottom;
     return result;
   }
 

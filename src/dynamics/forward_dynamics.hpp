@@ -174,10 +174,11 @@ void forward_dynamics(MultiBody<Algebra> &mb,
     //       NEURAL_ASSIGN(base_bias_force[4], "base_bias_force_4");
     //       NEURAL_ASSIGN(base_bias_force[5], "base_bias_force_5");
     // #endif
-
-    // mb.base_acceleration() = -mb.base_abi().inv_mul(mb.base_bias_force());
-    mb.base_acceleration() = -MotionVector(
-        Algebra::inverse(mb.base_abi().matrix()) * mb.base_bias_force());
+    mb.base_acceleration() = -mb.base_abi().inv_mul(mb.base_bias_force());
+    // Matrix6 inv_abi = Algebra::inverse(mb.base_abi().matrix());
+    // mb.base_acceleration() = -MotionVector(
+    //     inv_abi * mb.base_bias_force());
+    // Algebra::print("mb.base_acceleration()", mb.base_acceleration());
 
   } else {
     mb.base_acceleration() = -spatial_gravity;
@@ -229,6 +230,7 @@ void forward_dynamics(MultiBody<Algebra> &mb,
   } else {
     mb.base_acceleration().set_zero();
   }
+  Algebra::print("qdd (after FD):", qdd);
 }
 
 template <typename Algebra>

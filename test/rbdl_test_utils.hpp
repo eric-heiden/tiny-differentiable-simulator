@@ -111,14 +111,16 @@ RigidBodyDynamics::Model to_rbdl(const MultiBody<Algebra> &mb) {
         break;
       case JOINT_FIXED:
         joint = RigidBodyDynamics::Joint(RigidBodyDynamics::JointTypeFixed);
-        --parent_id_offset;  // TODO verify (causes indexing issue otherwise)
+        // --parent_id_offset;  // TODO verify (causes indexing issue otherwise)
         break;
       default:
         joint = RigidBodyDynamics::Joint(RigidBodyDynamics::JointTypeUndefined);
         break;
     }
     unsigned int parent_id = link.parent_index < 0 ? 0u : link.parent_index + 1;
-    parent_id += parent_id_offset;
+    if (link.joint_type != JOINT_FIXED) {
+      parent_id += parent_id_offset;
+    }
     model.AddBody(parent_id, to_rbdl<Algebra>(link.X_T), joint, body);
   }
   return model;
@@ -193,6 +195,8 @@ bool is_equal(const typename Algebra::Matrix3 &a,
         std::cout << "\terror = "
                   << std::abs(Algebra::to_double(a(i, j)) - b(i, j))
                   << std::endl;
+                  Algebra::print("%%% a:", a);
+                  std::cout << "%%% b:\n" << b << "\n\n";
         return false;
       }
     }
@@ -260,13 +264,13 @@ bool is_equal(const typename Algebra::Matrix3X &a,
 template <typename Algebra>
 bool is_equal(const Transform<Algebra> &a,
               const RigidBodyDynamics::Math::SpatialTransform &b) {
-  // #if TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
-  // return is_equal<Algebra>(a.translation, b.r) &&
-  //        is_equal<Algebra>(a.rotation, b.E);
-  // #else
+#if TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+  return is_equal<Algebra>(a.translation, b.r) &&
+         is_equal<Algebra>(a.rotation, b.E);
+#else
   return is_equal<Algebra>(a.translation, b.r) &&
          is_equal<Algebra>(a.rotation, b.E.transpose().eval());
-  // #endif
+#endif
 }
 
 template <typename Algebra>
@@ -284,8 +288,6 @@ bool is_equal(const ArticulatedBodyInertia<Algebra> &a,
   for (int i = 0; i < 6; ++i) {
     for (int j = 0; j < 6; ++j) {
       if (std::abs(Algebra::to_double(ma(i, j)) - b(i, j)) > ERROR_TOLERANCE) {
-        // if (std::abs(Algebra::to_double(a(i, j)) - b(i, j)) >
-        // ERROR_TOLERANCE) {
         std::cout << "a[" << i << "," << j
                   << "] = " << Algebra::to_double(a(i, j));
         std::cout << "\tb[" << i << "," << j << "] = " << b(i, j);
@@ -316,7 +318,7 @@ bool is_equal(const MultiBody<Algebra> &tds,
       return false;
       std::cout << "\n";
     }
-    if (!is_equal<Algebra>(tds[j].X_T, rbdl.X_lambda[rbdl_j])) {
+    if (!is_equal<Algebra>(tds[j].X_parent, rbdl.X_lambda[rbdl_j])) {
       fprintf(stderr, "Mismatch in X_lambda (X_parent) at link %i.\n",
               static_cast<int>(j));
       Algebra::print("TDS:  ", tds[j].X_parent);

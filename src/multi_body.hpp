@@ -271,10 +271,10 @@ public:
   void set_orientation(const Quaternion& initial_orientation) {
       base_X_world_.rotation = Algebra::quat_to_matrix(initial_orientation);
       if (is_floating_) {
-          q_[0] = initial_orientation[0];
-          q_[1] = initial_orientation[1];
-          q_[2] = initial_orientation[2];
-          q_[3] = initial_orientation[3];
+          q_[0] = Algebra::quat_x(initial_orientation);
+          q_[1] = Algebra::quat_y(initial_orientation);
+          q_[2] = Algebra::quat_z(initial_orientation);
+          q_[3] = Algebra::quat_w(initial_orientation);
       }
   }
 

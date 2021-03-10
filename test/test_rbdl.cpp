@@ -103,11 +103,12 @@ void test_urdf_kinematics(std::string filename) {
 }
 
 template <typename Algebra>
-void test_urdf_dynamics(std::string filename) {
+void test_urdf_dynamics(std::string filename, bool is_floating = false) {
   using Tf = Transform<Algebra>;
   using Vector3 = typename Algebra::Vector3;
   using VectorX = typename Algebra::VectorX;
   using Matrix3 = typename Algebra::Matrix3;
+  using Quaternion = typename Algebra::Quaternion;
   using RigidBodyInertia = RigidBodyInertia<Algebra>;
 
   Vector3 gravity(0., 0., -9.81);
@@ -116,7 +117,6 @@ void test_urdf_dynamics(std::string filename) {
   MultiBody<Algebra> *mb = nullptr;
 
   std::string urdf_filename;
-  bool is_floating = false;
   bool result = FileUtils::find_file(filename, urdf_filename);
   ASSERT_TRUE(result);
   printf("urdf_filename=%s\n", urdf_filename.c_str());
@@ -125,7 +125,7 @@ void test_urdf_dynamics(std::string filename) {
   mb = cache.construct(urdf_filename, world, false, is_floating);
 #else   // USE_BULLET_URDF_PARSER
   UrdfParser<Algebra> parser;
-  MultiBody<Algebra> mb1;
+  MultiBody<Algebra> mb1(is_floating);
   mb = &mb1;
   std::string full_path;
   FileUtils::find_file(filename, full_path);
@@ -133,6 +133,17 @@ void test_urdf_dynamics(std::string filename) {
   UrdfToMultiBody<Algebra>::convert_to_multi_body(urdf_structures, world, mb1);
   mb1.initialize();
 #endif  // USE_BULLET_URDF_PARSER
+
+  if (mb->is_floating()) {
+    // apply some random base velocity for testing
+    mb->qd(0) = -0.5;
+    mb->qd(2) = 1.7;
+    mb->qd(3) = 1.3;
+    mb->qd(4) = 0.87;
+    // set a random base orientation
+    mb->set_orientation(
+        Algebra::matrix_to_quat(Algebra::rotation_zyx_matrix(0.5, -0.7, 0.3)));
+  }
 
   std::string fail_message = "Failure at time step ";
 
@@ -235,39 +246,46 @@ void test_urdf_dynamics(std::string filename) {
       //   exit(1);
       // }
 
-      EXPECT_TRUE(is_equal<Algebra>(*mb, rbdl_model)) << fail_message << i;
+      bool equal_model = is_equal<Algebra>(*mb, rbdl_model);
+      EXPECT_TRUE(equal_model) << fail_message << i;
+      if (!equal_model) {
+        break;
+      }
 
       // if (!is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd)) {
       //   exit(1);
       // }
-      EXPECT_TRUE(is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd))
-          << fail_message << i;
+      // EXPECT_TRUE(is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd))
+      //     << fail_message << i;
 
-      // integrate_euler(*mb, dt);
-      // rbdl_qd += rbdl_qdd * dt;
-      // if (mb->is_floating()) {
-      //   // need to integrate quaternion
-      //   Algebra::Quaternion quat = Algebra::quat_from_xyzw(
-      //       rbdl_q[3], rbdl_q[4], rbdl_q[5], rbdl_q[mb->dof() - 1]);
-      //   // Algebra::print("Base quat (RBDL): ", quat);
-      //   Algebra::Vector3 ang_vel(rbdl_qd[3], rbdl_qd[4], rbdl_qd[5]);
-      //   // Algebra::print("Angular velocity (RBDL): ", ang_vel);
-      //   // Algebra::Vector3 ang_vel_tds(mb->qd(0), mb->qd(1), mb->qd(2));
-      //   // Algebra::print("Angular velocity (TDS):  ", ang_vel_tds);
-      //   Algebra::Quaternion dquat = Algebra::quat_velocity(quat, ang_vel,
-      //   dt); quat += dquat; Algebra::normalize(quat); rbdl_q[3] =
-      //   Algebra::quat_x(quat); rbdl_q[4] = Algebra::quat_y(quat); rbdl_q[5] =
-      //   Algebra::quat_z(quat); rbdl_q[mb->dof() - 1] = Algebra::quat_w(quat);
-      //   // linear velocity integration
-      //   rbdl_q[0] += rbdl_qd[0] * dt;
-      //   rbdl_q[1] += rbdl_qd[1] * dt;
-      //   rbdl_q[2] += rbdl_qd[2] * dt;
-      //   for (int i = 6; i < mb->dof_qd(); ++i) {
-      //     rbdl_q[i] += rbdl_qd[i] * dt;
-      //   }
-      // } else {
-      //   rbdl_q += rbdl_qd * dt;
-      // }
+      integrate_euler(*mb, dt);
+      rbdl_qd += rbdl_qdd * dt;
+      if (mb->is_floating()) {
+        // need to integrate quaternion
+        Quaternion quat = Algebra::quat_from_xyzw(
+            rbdl_q[3], rbdl_q[4], rbdl_q[5], rbdl_q[mb->dof() - 1]);
+        // Algebra::print("Base quat (RBDL): ", quat);
+        Vector3 ang_vel(rbdl_qd[3], rbdl_qd[4], rbdl_qd[5]);
+        // Algebra::print("Angular velocity (RBDL): ", ang_vel);
+        // Algebra::Vector3 ang_vel_tds(mb->qd(0), mb->qd(1), mb->qd(2));
+        // Algebra::print("Angular velocity (TDS):  ", ang_vel_tds);
+        Quaternion dquat = Algebra::quat_velocity(quat, ang_vel, dt);
+        Algebra::quat_increment(quat, dquat);
+        Algebra::normalize(quat);
+        rbdl_q[3] = Algebra::quat_x(quat);
+        rbdl_q[4] = Algebra::quat_y(quat);
+        rbdl_q[5] = Algebra::quat_z(quat);
+        rbdl_q[mb->dof() - 1] = Algebra::quat_w(quat);
+        // linear velocity integration
+        rbdl_q[0] += rbdl_qd[0] * dt;
+        rbdl_q[1] += rbdl_qd[1] * dt;
+        rbdl_q[2] += rbdl_qd[2] * dt;
+        for (int i = 6; i < mb->dof_qd(); ++i) {
+          rbdl_q[i] += rbdl_qd[i] * dt;
+        }
+      } else {
+        rbdl_q += rbdl_qd * dt;
+      }
 
       // std::cout << "RBDL q (before mod): " << rbdl_q.transpose() <<
       // std::endl;
@@ -275,27 +293,33 @@ void test_urdf_dynamics(std::string filename) {
       // if (!is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd)) {
       //   exit(1);
       // }
-      ASSERT_TRUE(is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd))
-          << fail_message << i;
+      bool equal_coordinates =
+          is_equal<Algebra>(*mb, rbdl_q, rbdl_qd, rbdl_qdd);
+      ASSERT_TRUE(equal_coordinates) << fail_message << i;
+      if (!equal_coordinates) {
+        break;
+      }
 
       mb->clear_forces();
 
       // compare Jacobians
-      tds::forward_kinematics(*mb);
-      int jac_link_id = 2;
-      Vector3 world_point(1., 2., 3.);
-      auto tds_jac = tds::point_jacobian2(*mb, jac_link_id, world_point, false);
-      RigidBodyDynamics::Math::MatrixNd rbdl_jac(Algebra::num_rows(tds_jac),
-                                                 Algebra::num_cols(tds_jac));
-      rbdl_jac.setZero();
-      // left-associative inverse transform of body_to_world transform
-      // (rotation matrix is not inverted)
-      Transform<Algebra> link_tf = (*mb)[jac_link_id].X_world;
-      Vector3 body_point =
-          link_tf.rotation * (world_point - link_tf.translation);
-      RigidBodyDynamics::CalcPointJacobian(rbdl_model, rbdl_q, jac_link_id + 1,
-                                           to_rbdl<Algebra>(body_point),
-                                           rbdl_jac);
+      // tds::forward_kinematics(*mb);
+      // int jac_link_id = 2;
+      // Vector3 world_point(1., 2., 3.);
+      // auto tds_jac = tds::point_jacobian2(*mb, jac_link_id, world_point,
+      // false); RigidBodyDynamics::Math::MatrixNd
+      // rbdl_jac(Algebra::num_rows(tds_jac),
+      //                                            Algebra::num_cols(tds_jac));
+      // rbdl_jac.setZero();
+      // // left-associative inverse transform of body_to_world transform
+      // // (rotation matrix is not inverted)
+      // Transform<Algebra> link_tf = (*mb)[jac_link_id].X_world;
+      // Vector3 body_point =
+      //     link_tf.rotation * (world_point - link_tf.translation);
+      // RigidBodyDynamics::CalcPointJacobian(rbdl_model, rbdl_q, jac_link_id +
+      // 1,
+      //                                      to_rbdl<Algebra>(body_point),
+      //                                      rbdl_jac);
 
       // Algebra::print("TDS Jacobian", tds_jac);
       // std::cout << "RBDL Jacobian:\n" << rbdl_jac << std::endl;
@@ -307,13 +331,17 @@ void test_urdf_dynamics(std::string filename) {
 }
 
 // TEST(RBDLTest, SwimmerDynamics) {
-//   test_urdf_dynamics("swimmer/swimmer05/swimmer05.urdf");
+//   test_urdf_dynamics<TinyAlgebra<double, TINY::DoubleUtils>>(
+//       "swimmer/swimmer05/swimmer05.urdf");
+//   test_urdf_dynamics<tds::EigenAlgebra>("swimmer/swimmer05/swimmer05.urdf");
 // }
 
-// TEST(RBDLTest, PendulumDynamics) {
-//   test_urdf_dynamics<TinyAlgebra<double, TINY::DoubleUtils>>("pendulum5.urdf");
-//   test_urdf_dynamics<tds::EigenAlgebra>("pendulum5.urdf");
-// }
+TEST(RBDLTest, PendulumDynamics) {
+  std::cout << "\n\n### TinyAlgebra:\n";
+  test_urdf_dynamics<TinyAlgebra<double, TINY::DoubleUtils>>("pendulum5.urdf");
+  std::cout << "\n\n### EigenAlgebra:\n";
+  test_urdf_dynamics<tds::EigenAlgebra>("pendulum5.urdf");
+}
 
 TEST(RBDLTest, PandaDynamics) {
   std::cout << "\n\n### TinyAlgebra:\n";
@@ -323,6 +351,30 @@ TEST(RBDLTest, PandaDynamics) {
   test_urdf_dynamics<tds::EigenAlgebra>(
       "/home/eric/pds-risk-aware/data/franka_panda/panda_with_pendulum.urdf");
 }
+
+TEST(RBDLTest, FloatingCube) {
+  test_urdf_dynamics<TinyAlgebra<double, TINY::DoubleUtils>>("sphere8cube.urdf",
+                                                             true);
+  test_urdf_dynamics<tds::EigenAlgebra>("sphere8cube.urdf", true);
+}
+
+// TEST(RBDLTest, PandaDynamics) {
+//   std::cout << "\n\n### TinyAlgebra:\n";
+//   test_urdf_dynamics<TinyAlgebra<double, TINY::DoubleUtils>>(
+//       "/home/eric/pds-risk-aware/data/franka_panda/panda_with_box.urdf");
+//   std::cout << "\n\n### EigenAlgebra:\n";
+//   test_urdf_dynamics<tds::EigenAlgebra>(
+//       "/home/eric/pds-risk-aware/data/franka_panda/panda_with_box.urdf");
+// }
+
+// TEST(RBDLTest, LaikagoDynamics) {
+//   std::cout << "\n\n### TinyAlgebra:\n";
+//   test_urdf_dynamics<TinyAlgebra<double, TINY::DoubleUtils>>(
+//       "laikago/laikago_toes_zup.urdf");
+//   std::cout << "\n\n### EigenAlgebra:\n";
+//   test_urdf_dynamics<tds::EigenAlgebra>(
+//       "laikago/laikago_toes_zup.urdf");
+// }
 
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);

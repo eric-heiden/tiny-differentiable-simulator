@@ -19,11 +19,11 @@ void test_transform_matrix_consistency() {
   Transform t2(Vector3(1.9, 3.6, 8.2),
                Algebra::rotation_zyx_matrix(3.9, 0.63, 1.7));
   Matrix6 tf_result = (t1 * t2).matrix();
-// #ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
-  // Matrix6 mat_result = t1.matrix() * t2.matrix();
-// #else
+#ifdef TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+  Matrix6 mat_result = t1.matrix() * t2.matrix();
+#else
   Matrix6 mat_result = t2.matrix() * t1.matrix();
-// #endif
+#endif
 
   // Algebra::print("tf_result", tf_result);
   // Algebra::print("mat_result", mat_result);
@@ -47,29 +47,30 @@ void test_transform_rbdl() {
   // EXPECT_TRUE(is_equal<Algebra>(t1, rbdl_t1));
   // Transform t2(Vector3(1.9, 3.6, 8.2),
   //              Algebra::rotation_zyx_matrix(3.9, 0.63, 1.7));
-  Transform t1(Vector3(1.0, 2.0, 3.0),
-               Algebra::rotation_x_matrix(M_PI_2));
+  Transform t1(Vector3(1.0, 2.0, 3.0), Algebra::rotation_x_matrix(M_PI_2));
   auto rbdl_t1 = to_rbdl<Algebra>(t1);
-  Algebra::print("\nTDS t1:", t1);
-  std::cout << "RBDL T1: " << rbdl_t1 << std::endl;
+  // Algebra::print("\nTDS t1:", t1);
+  // std::cout << "RBDL T1: " << rbdl_t1 << std::endl;
   EXPECT_TRUE(is_equal<Algebra>(t1, rbdl_t1));
   auto t1_m = t1.matrix();
   auto rbdl_t1_m = rbdl_t1.toMatrix();
-  Algebra::print("\nTDS t1 MATRIX:", t1_m);
-  std::cout << "RBDL T1 MATRIX:\n" << rbdl_t1_m << std::endl;
+  // Algebra::print("\nTDS t1 MATRIX:", t1_m);
+  // std::cout << "RBDL T1 MATRIX:\n" << rbdl_t1_m << std::endl;
   EXPECT_TRUE(is_equal<Algebra>(t1_m, rbdl_t1_m));
-  Transform t2(Vector3(3.0, 2.0 ,1.0),
-               Algebra::rotation_x_matrix(M_PI_2));
+  Transform t2(Vector3(3.0, 2.0, 1.0), Algebra::rotation_x_matrix(M_PI_2));
   auto rbdl_t2 = to_rbdl<Algebra>(t2);
   Transform t12 = t1 * t2;
+#if TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
+  auto rbdl_t12 = rbdl_t1 * rbdl_t2;
+#else
   auto rbdl_t12 = rbdl_t2 * rbdl_t1;
-  // auto rbdl_t12 = rbdl_t2 * rbdl_t1;
-  Algebra::print("\nTDS t12:", t12);
-  std::cout << "RBDL T12: " << rbdl_t12 << std::endl;
+#endif
+  // Algebra::print("\nTDS t12:", t12);
+  // std::cout << "RBDL T12: " << rbdl_t12 << std::endl;
   auto t12_m = t12.matrix();
   auto rbdl_t12_m = rbdl_t12.toMatrix();
-  Algebra::print("\nTDS t12 MATRIX:", t12_m);
-  std::cout << "RBDL t12 MATRIX:\n" << rbdl_t12_m << std::endl;
+  // Algebra::print("\nTDS t12 MATRIX:", t12_m);
+  // std::cout << "RBDL t12 MATRIX:\n" << rbdl_t12_m << std::endl;
   EXPECT_TRUE(is_equal<Algebra>(t12, rbdl_t12));
 }
 
@@ -84,8 +85,8 @@ void test_transform_inverse() {
 
   Matrix6 tf_result1 = (t * t.inverse()).matrix();
   Matrix6 tf_result2 = (t.inverse() * t).matrix();
-  Algebra::print("t * t.inverse()", tf_result1);
-  Algebra::print("t.inverse() * t", tf_result2);
+  // Algebra::print("t * t.inverse()", tf_result1);
+  // Algebra::print("t.inverse() * t", tf_result2);
   for (int i = 0; i < 6; ++i) {
     for (int j = 0; j < 6; ++j) {
       if (i == j) {
@@ -215,8 +216,8 @@ void test_transform_spatial_vector() {
   Eigen::Matrix<double, 6, 1> true_tmv_i = eigen_it * eigen_mv;
   MotionVector tmv_i = t.apply_inverse(mv);
 
-  Algebra::print("TMV", tmv);
-  std::cout << "Eigen: " << true_tmv.transpose() << std::endl;
+  // Algebra::print("TMV", tmv);
+  // std::cout << "Eigen: " << true_tmv.transpose() << std::endl;
 
 #if TDS_USE_LEFT_ASSOCIATIVE_TRANSFORMS
   RigidBodyDynamics::Math::SpatialTransform rbdl_t(to_eigen(t.rotation),
@@ -231,16 +232,14 @@ void test_transform_spatial_vector() {
   RigidBodyDynamics::Math::SpatialVector rbdl_t_mv = rbdl_t.apply(rbdl_mv);
   RigidBodyDynamics::Math::SpatialVector rbdl_t_fv =
       rbdl_t.applyTranspose(rbdl_fv);
-  std::cout << "RBDL: " << rbdl_t_mv.transpose() << std::endl;
+  // std::cout << "RBDL: " << rbdl_t_mv.transpose() << std::endl;
 
   for (int i = 0; i < 6; ++i) {
     // XXX only RBDL matters
-    // EXPECT_NEAR(tmv[i], true_tmv[i], 1e-8);
-    // EXPECT_NEAR(tmv_i[i], true_tmv_i[i], 1e-8);
+    EXPECT_NEAR(tmv[i], true_tmv[i], 1e-8);
+    EXPECT_NEAR(tmv_i[i], true_tmv_i[i], 1e-8);
     EXPECT_NEAR(tmv[i], rbdl_t_mv[i], 1e-8);
     EXPECT_NEAR(tfv[i], rbdl_t_fv[i], 1e-8);
-
-    // EXPECT_NEAR(tfv[i], true_tfv[i], 1e-8);
   }
 }
 
@@ -369,51 +368,53 @@ void test_inertia_matrix() {
   }
 }
 
-// TEST(Spatial, TransformMatrixConsistency) {
-//   test_transform_matrix_consistency<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   test_transform_matrix_consistency<tds::EigenAlgebra>();
-// }
+TEST(Spatial, TransformMatrixConsistency) {
+  test_transform_matrix_consistency<TinyAlgebra<double, TINY::DoubleUtils>>();
+  test_transform_matrix_consistency<tds::EigenAlgebra>();
+}
 
 TEST(Spatial, TransformMatchesRBDL) {
+  // std::cout << "\n\n### TinyAlgebra:\n";
   test_transform_rbdl<TinyAlgebra<double, TINY::DoubleUtils>>();
+  // std::cout << "\n\n### EigenAlgebra:\n";
   test_transform_rbdl<tds::EigenAlgebra>();
 }
 
-// TEST(Spatial, TransformInverse) {
-//   test_transform_inverse<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   test_transform_inverse<tds::EigenAlgebra>();
-// }
+TEST(Spatial, TransformInverse) {
+  test_transform_inverse<TinyAlgebra<double, TINY::DoubleUtils>>();
+  test_transform_inverse<tds::EigenAlgebra>();
+}
 
-// TEST(Spatial, TransformTranspose) {
-//   test_transform_transpose<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   test_transform_transpose<tds::EigenAlgebra>();
-// }
+TEST(Spatial, TransformTranspose) {
+  test_transform_transpose<TinyAlgebra<double, TINY::DoubleUtils>>();
+  test_transform_transpose<tds::EigenAlgebra>();
+}
 
-// TEST(Spatial, TransformSpatialVector) {
-//   // std::cout << "\n\n### TinyAlgebra:\n";
-//   test_transform_spatial_vector<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   // std::cout << "\n\n### EigenAlgebra:\n";
-//   test_transform_spatial_vector<tds::EigenAlgebra>();
-// }
+TEST(Spatial, TransformSpatialVector) {
+  // std::cout << "\n\n### TinyAlgebra:\n";
+  test_transform_spatial_vector<TinyAlgebra<double, TINY::DoubleUtils>>();
+  // std::cout << "\n\n### EigenAlgebra:\n";
+  test_transform_spatial_vector<tds::EigenAlgebra>();
+}
 
-// TEST(Spatial, SpatialCross) {
-//   std::cout << "\n\n### TinyAlgebra:\n";
-//   test_spatial_cross<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   std::cout << "\n\n### EigenAlgebra:\n";
-//   test_spatial_cross<tds::EigenAlgebra>();
-// }
+TEST(Spatial, SpatialCross) {
+  // std::cout << "\n\n### TinyAlgebra:\n";
+  test_spatial_cross<TinyAlgebra<double, TINY::DoubleUtils>>();
+  // std::cout << "\n\n### EigenAlgebra:\n";
+  test_spatial_cross<tds::EigenAlgebra>();
+}
 
-// TEST(Spatial, InertiaFromMassComI) {
-//   // std::cout << "\n\n### TinyAlgebra:\n";
-//   test_rbi_construction<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   // std::cout << "\n\n### EigenAlgebra:\n";
-//   test_rbi_construction<tds::EigenAlgebra>();
-// }
+TEST(Spatial, InertiaFromMassComI) {
+  // std::cout << "\n\n### TinyAlgebra:\n";
+  test_rbi_construction<TinyAlgebra<double, TINY::DoubleUtils>>();
+  // std::cout << "\n\n### EigenAlgebra:\n";
+  test_rbi_construction<tds::EigenAlgebra>();
+}
 
-// TEST(Spatial, InertiaMatrix) {
-//   test_inertia_matrix<TinyAlgebra<double, TINY::DoubleUtils>>();
-//   test_inertia_matrix<tds::EigenAlgebra>();
-// }
+TEST(Spatial, InertiaMatrix) {
+  test_inertia_matrix<TinyAlgebra<double, TINY::DoubleUtils>>();
+  test_inertia_matrix<tds::EigenAlgebra>();
+}
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);

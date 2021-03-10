@@ -1,7 +1,7 @@
 #pragma once
 
-
 #include "../multi_body.hpp"
+#include "math/eigen_algebra.hpp"
 
 namespace tds {
 /**
@@ -21,6 +21,8 @@ void forward_kinematics(
     const typename Algebra::VectorX &qdd = typename Algebra::VectorX()) {
   using Scalar = typename Algebra::Scalar;
   using Vector3 = typename Algebra::Vector3;
+  using Matrix3 = typename Algebra::Matrix3;
+  using Matrix6 = typename Algebra::Matrix6;
   typedef tds::Transform<Algebra> Transform;
   typedef tds::MotionVector<Algebra> MotionVector;
   typedef tds::ForceVector<Algebra> ForceVector;
@@ -38,15 +40,49 @@ void forward_kinematics(
     if (Algebra::size(qd) != 0) {
       mb.base_velocity().top = Vector3(qd[0], qd[1], qd[2]);
       mb.base_velocity().bottom = Vector3(qd[3], qd[4], qd[5]);
+      // mb.base_velocity().bottom = Vector3(qd[0], qd[1], qd[2]);
+      // mb.base_velocity().top = Vector3(qd[3], qd[4], qd[5]);
     } else {
       mb.base_velocity().set_zero();
     }
 
+    MotionVector v0 = mb.base_velocity();
+
     mb.base_abi() = mb.base_rbi();
-    // ForceVector I0_mul_v0 = mb.base_abi() * mb.base_velocity();
+    Algebra::print("base_velocity", mb.base_velocity());
+    Algebra::print("qd", mb.qd());
+    // ForceVector I0_mul_v0 = mb.base_abi() * v0;
+    // Algebra::print("ABI", mb.base_abi().matrix());
+    // typedef Eigen::Matrix<double, 6, 1> Vector6;
+    // Vector6 v0d;
+    // v0d[0] = v0[3];
+    // v0d[1] = v0[4];
+    // v0d[2] = v0[5];
+    // v0d[3] = v0[0];
+    // v0d[4] = v0[1];
+    // v0d[5] = v0[2];
+    // // for (int i = 0; i < 6; ++i) {
+    // //   v0d[i] = v0[i];
+    // // }
+    // Vector6 I0_mul_v0d = mb.base_abi().matrix().transpose() * v0d;
+    // ForceVector I0_mul_v0;
+    // for (int i = 0; i < 6; ++i) {
+    //   I0_mul_v0[i] = I0_mul_v0d[i];
+    // }
     ForceVector I0_mul_v0 = mb.base_abi().mul_org(mb.base_velocity());
+    // Matrix6 v0x = v0.cross_matrix();
+    // Algebra::print("v0x", v0x);
+    // // Matrix6 v0xI = v0x * mb.base_abi().matrix().transpose();
+    // // Algebra::print("v0xI", v0xI);
+    // Vector6 bbf = v0x * I0_mul_v0d;
+    // // Vector6 bbf = v0xI * v0d;
+    // for (int i = 0; i < 6; ++i) {
+    //   mb.base_bias_force()[i] = bbf[i];
+    // }
     mb.base_bias_force() =
-        Algebra::cross(mb.base_velocity(), I0_mul_v0) - mb.base_applied_force();
+        Algebra::cross(v0, I0_mul_v0) - mb.base_applied_force();
+    Algebra::print("I0_mul_v0", I0_mul_v0);
+    Algebra::print("mb.base_bias_force()", mb.base_bias_force());
   }
 
   for (int i = 0; i < static_cast<int>(mb.size()); i++) {
@@ -86,6 +122,7 @@ void forward_kinematics(
 
     link.abi = link.rbi;
     ForceVector I_mul_v = link.abi * link.v;
+    // ForceVector I_mul_v = link.abi.mul_org(link.v);
     ForceVector f_ext = link.X_world.apply_inverse(link.f_ext);
     // #ifdef NEURAL_SIM
     //       if (i >= 3) {

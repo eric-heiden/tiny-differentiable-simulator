@@ -6,6 +6,8 @@
 #include "../base.hpp"
 #include "utils/conversion.hpp"
 
+#include <Eigen/Core>
+
 namespace tds {
 template <typename Algebra>
 struct SpatialVector {
@@ -93,6 +95,8 @@ template <typename Algebra>
 struct MotionVector : public SpatialVector<Algebra> {
   using SpatialVector = tds::SpatialVector<Algebra>;
   using Scalar = typename Algebra::Scalar;
+  using Matrix3 = typename Algebra::Matrix3;
+  using Matrix6 = typename Algebra::Matrix6;
   using SpatialVector::bottom;
   using SpatialVector::SpatialVector;
   using SpatialVector::top;
@@ -138,6 +142,20 @@ struct MotionVector : public SpatialVector<Algebra> {
   TINY_INLINE MotionVector operator*(const Scalar &s) const {
     return MotionVector(s * top, s * bottom);
   }
+
+  /**
+   * Spatial vector cross matrix vx for a motion vector v.
+   * Refered to as `crm(v)` in Featherstone.
+   */
+  Matrix6 cross_matrix() const {
+    Matrix6 result;
+    Matrix3 temp = Algebra::cross_matrix(top);
+    Algebra::assign_block(result, temp, 0, 0);
+    Algebra::assign_block(result, Algebra::zero33(), 0, 3);
+    Algebra::assign_block(result, Algebra::cross_matrix(bottom), 3, 0);
+    Algebra::assign_block(result, temp, 3, 3);
+    return result;
+  }
 };
 
 template <typename AlgebraFrom, typename AlgebraTo = AlgebraFrom>
@@ -150,7 +168,7 @@ template <typename Algebra>
 struct ForceVector : public SpatialVector<Algebra> {
   using SpatialVector = tds::SpatialVector<Algebra>;
   using Scalar = typename Algebra::Scalar;
-  // using Vector6 = typename Algebra::Vector6;
+  using Matrix3 = typename Algebra::Matrix3;
   using Matrix6 = typename Algebra::Matrix6;
   using SpatialVector::bottom;
   using SpatialVector::SpatialVector;
@@ -194,14 +212,37 @@ struct ForceVector : public SpatialVector<Algebra> {
   }
 
   /**
+   * Spatial vector cross matrix vx* for a force vector v.
+   * Refered to as `crf(v)` in Featherstone.
+   */
+  Matrix6 cross_matrix() const {
+    Matrix6 result;
+    Matrix3 temp = -Algebra::transpose(Algebra::cross_matrix(top));
+    Algebra::assign_block(result, temp, 0, 0);
+    Algebra::assign_block(result, Algebra::cross_matrix(bottom), 0, 3);
+    Algebra::assign_block(result, Algebra::zero33(), 3, 0);
+    Algebra::assign_block(result, temp, 3, 3);
+    return result;
+  }
+
+  /**
    * This function only exists to multiply the inverse of the 6x6 inertia matrix
    * (ABI) with the bias force vector of the MultiBody base.
    */
-  // TINY_INLINE friend MotionVector<Algebra> operator*(const Matrix6 &m,
-  //                                                    const ForceVector &v) {
-  //   Vector6 v6 = v;
-  //   return m * v6;
-  // }
+  TINY_INLINE friend MotionVector<Algebra> operator*(const Matrix6 &m,
+                                                     const ForceVector &v) {
+    Eigen::Matrix<double, 6, 1> v6;
+    for (int i = 0; i < 6; ++i) {
+      v6[i] = v[i];
+    }
+    Eigen::Matrix<double, 6, 1> temp = m * v6;
+    MotionVector<Algebra> r;
+    for (int i = 0; i < 6; ++i) {
+      r[i] = temp[i];
+
+    }
+    return r;
+  }
 };
 
 template <typename AlgebraFrom, typename AlgebraTo = AlgebraFrom>
